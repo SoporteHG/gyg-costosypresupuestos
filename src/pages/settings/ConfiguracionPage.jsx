@@ -20,6 +20,10 @@ const initialForm = {
 
 const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024;
 
+function toText(value) {
+  return typeof value === "string" ? value : "";
+}
+
 export default function ConfiguracionPage({
   currentUser,
   companyId,
@@ -50,7 +54,12 @@ export default function ConfiguracionPage({
       if (branding) {
         setForm({
           ...initialForm,
-          ...branding,
+          ...Object.fromEntries(
+            Object.entries({
+              ...initialForm,
+              ...branding,
+            }).map(([key, value]) => [key, key.includes("color") ? value || initialForm[key] : toText(value)])
+          ),
         });
       } else {
         setForm(initialForm);
@@ -133,20 +142,20 @@ export default function ConfiguracionPage({
 
       const payload = {
         company_id: resolvedCompanyId,
-        business_name: form.business_name.trim(),
-        legal_name: form.legal_name.trim(),
-        rfc: form.rfc.trim(),
-        phone: form.phone.trim(),
-        email: form.email.trim(),
-        address: form.address.trim(),
-        website: form.website.trim(),
-        logo_url: form.logo_url.trim(),
-        signature_url: form.signature_url.trim(),
-        primary_color: form.primary_color,
-        secondary_color: form.secondary_color,
-        pdf_footer: form.pdf_footer.trim(),
-        default_terms: form.default_terms.trim(),
-        default_notes: form.default_notes.trim(),
+        business_name: toText(form.business_name).trim(),
+        legal_name: toText(form.legal_name).trim(),
+        rfc: toText(form.rfc).trim(),
+        phone: toText(form.phone).trim(),
+        email: toText(form.email).trim(),
+        address: toText(form.address).trim(),
+        website: toText(form.website).trim(),
+        logo_url: toText(form.logo_url).trim(),
+        signature_url: toText(form.signature_url).trim(),
+        primary_color: form.primary_color || initialForm.primary_color,
+        secondary_color: form.secondary_color || initialForm.secondary_color,
+        pdf_footer: toText(form.pdf_footer).trim(),
+        default_terms: toText(form.default_terms).trim(),
+        default_notes: toText(form.default_notes).trim(),
       };
 
       const { error } = await supabase
