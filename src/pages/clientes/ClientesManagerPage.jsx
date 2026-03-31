@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import {
+  downloadExcelTemplate,
+  mapExcelRows,
+  normalizeLookupKey,
+  normalizeText,
+  readExcelRows,
+} from "../../lib/excel";
 
 const initialForm = {
   id: null,
@@ -12,6 +19,25 @@ const initialForm = {
 };
 
 const REQUEST_TIMEOUT_MS = 10000;
+const CLIENT_TEMPLATE = [
+  {
+    Nombre: "Cliente Demo",
+    Empresa: "Empresa Demo",
+    RFC: "XAXX010101000",
+    Telefono: "5550000000",
+    Direccion: "Calle Ejemplo 123",
+    Correo: "cliente@demo.com",
+  },
+];
+
+const CLIENT_HEADER_MAP = {
+  nombre: ["Nombre", "Cliente"],
+  empresa: ["Empresa"],
+  rfc: ["RFC"],
+  telefono: ["Telefono", "Teléfono"],
+  direccion: ["Direccion", "Dirección"],
+  email: ["Correo", "Email"],
+};
 
 export default function ClientesManagerPage({ currentUser, companyId }) {
   const [clientes, setClientes] = useState([]);
@@ -22,6 +48,7 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [statusDetail, setStatusDetail] = useState("Preparando carga...");
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     loadClientes();
@@ -224,6 +251,115 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
     }
   }
 
+  function handleDownloadTemplate() {
+    downloadExcelTemplate("plantilla-clientes.xlsx", "Clientes", CLIENT_TEMPLATE);
+  }
+
+  function openImportDialog() {
+    importInputRef.current?.click();
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+      setErrorMessage("");
+      setStatusDetail("Leyendo archivo de clientes...");
+
+      const tenantId = companyId || getMyCompanyId();
+      const excelRows = await readExcelRows(file);
+      const mappedRows = mapExcelRows(excelRows, CLIENT_HEADER_MAP)
+        .map((row) => ({
+          nombre: normalizeText(row.nombre),
+          empresa: normalizeText(row.empresa),
+          rfc: normalizeText(row.rfc),
+          telefono: normalizeText(row.telefono),
+          direccion: normalizeText(row.direccion),
+          email: normalizeText(row.email),
+        }))
+        .filter((row) => row.nombre);
+
+      if (!mappedRows.length) {
+        throw new Error("El archivo no contiene clientes validos. Usa la plantilla para importar.");
+      }
+
+      const { data: existingRows, error: existingError } = await withTimeout(
+        supabase
+          .from("clientes")
+          .select("id, nombre, empresa, email")
+          .eq("tenant_id", tenantId),
+        "consultar clientes existentes"
+      );
+
+      if (existingError) throw existingError;
+
+      const existingMap = new Map(
+        (existingRows || []).map((row) => [
+          normalizeLookupKey([row.nombre, row.empresa || "", row.email || ""]),
+          row.id,
+        ])
+      );
+
+      const updates = [];
+      const inserts = [];
+
+      mappedRows.forEach((row) => {
+        const payload = {
+          tenant_id: tenantId,
+          nombre: row.nombre,
+          empresa: row.empresa || null,
+          rfc: row.rfc || null,
+          telefono: row.telefono || null,
+          direccion: row.direccion || null,
+          email: row.email || null,
+        };
+
+        const existingId = existingMap.get(
+          normalizeLookupKey([row.nombre, row.empresa || "", row.email || ""])
+        );
+
+        if (existingId) {
+          updates.push({ id: existingId, payload });
+        } else {
+          inserts.push(payload);
+        }
+      });
+
+      for (const update of updates) {
+        const { error } = await withTimeout(
+          supabase.from("clientes").update(update.payload).eq("id", update.id),
+          "actualizar clientes importados"
+        );
+
+        if (error) throw error;
+      }
+
+      if (inserts.length) {
+        const { error } = await withTimeout(
+          supabase.from("clientes").insert(inserts),
+          "insertar clientes importados"
+        );
+
+        if (error) throw error;
+      }
+
+      setMessage(
+        `Importacion completada. ${inserts.length} cliente(s) nuevos y ${updates.length} actualizado(s).`
+      );
+      await loadClientes();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error.message || "No se pudo importar el archivo de clientes.");
+      setStatusDetail("La importacion se detuvo.");
+    } finally {
+      setSaving(false);
+      event.target.value = "";
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -337,6 +473,22 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
             <button type="button" className="secondary-btn" onClick={loadClientes} disabled={loading}>
               {loading ? "Actualizando..." : "Recargar"}
             </button>
+          </div>
+
+          <div className="settings-inline-actions">
+            <button type="button" className="secondary-btn" onClick={handleDownloadTemplate}>
+              Descargar plantilla
+            </button>
+            <button type="button" className="secondary-btn" onClick={openImportDialog} disabled={saving}>
+              {saving ? "Importando..." : "Importar Excel"}
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleImportFile}
+              style={{ display: "none" }}
+            />
           </div>
 
           {errorMessage ? <p className="form-message form-message-error">{errorMessage}</p> : null}

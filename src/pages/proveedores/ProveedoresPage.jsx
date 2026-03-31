@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import {
+  downloadExcelTemplate,
+  mapExcelRows,
+  normalizeLookupKey,
+  normalizeText,
+  readExcelRows,
+} from "../../lib/excel";
 
 const initialForm = {
   id: null,
@@ -13,6 +20,27 @@ const initialForm = {
 };
 
 const REQUEST_TIMEOUT_MS = 10000;
+const PROVIDER_TEMPLATE = [
+  {
+    Nombre: "Proveedor Demo",
+    Empresa: "Distribuidora Demo",
+    Contacto: "Maria Lopez",
+    RFC: "XAXX010101000",
+    Telefono: "5550000000",
+    Correo: "ventas@proveedor.com",
+    Direccion: "Av. Principal 456",
+  },
+];
+
+const PROVIDER_HEADER_MAP = {
+  nombre: ["Nombre", "Proveedor"],
+  empresa: ["Empresa"],
+  contacto: ["Contacto"],
+  rfc: ["RFC"],
+  telefono: ["Telefono", "Teléfono"],
+  email: ["Correo", "Email"],
+  direccion: ["Direccion", "Dirección"],
+};
 
 export default function ProveedoresPage({ currentUser, companyId }) {
   const [proveedores, setProveedores] = useState([]);
@@ -23,6 +51,7 @@ export default function ProveedoresPage({ currentUser, companyId }) {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [statusDetail, setStatusDetail] = useState("Preparando carga...");
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     loadProveedores();
@@ -226,6 +255,117 @@ export default function ProveedoresPage({ currentUser, companyId }) {
     }
   }
 
+  function handleDownloadTemplate() {
+    downloadExcelTemplate("plantilla-proveedores.xlsx", "Proveedores", PROVIDER_TEMPLATE);
+  }
+
+  function openImportDialog() {
+    importInputRef.current?.click();
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+      setErrorMessage("");
+      setStatusDetail("Leyendo archivo de proveedores...");
+
+      const tenantId = companyId || getMyCompanyId();
+      const excelRows = await readExcelRows(file);
+      const mappedRows = mapExcelRows(excelRows, PROVIDER_HEADER_MAP)
+        .map((row) => ({
+          nombre: normalizeText(row.nombre),
+          empresa: normalizeText(row.empresa),
+          contacto: normalizeText(row.contacto),
+          rfc: normalizeText(row.rfc),
+          telefono: normalizeText(row.telefono),
+          email: normalizeText(row.email),
+          direccion: normalizeText(row.direccion),
+        }))
+        .filter((row) => row.nombre);
+
+      if (!mappedRows.length) {
+        throw new Error("El archivo no contiene proveedores validos. Usa la plantilla para importar.");
+      }
+
+      const { data: existingRows, error: existingError } = await withTimeout(
+        supabase
+          .from("proveedores")
+          .select("id, nombre, empresa, email")
+          .eq("tenant_id", tenantId),
+        "consultar proveedores existentes"
+      );
+
+      if (existingError) throw existingError;
+
+      const existingMap = new Map(
+        (existingRows || []).map((row) => [
+          normalizeLookupKey([row.nombre, row.empresa || "", row.email || ""]),
+          row.id,
+        ])
+      );
+
+      const updates = [];
+      const inserts = [];
+
+      mappedRows.forEach((row) => {
+        const payload = {
+          tenant_id: tenantId,
+          nombre: row.nombre,
+          empresa: row.empresa || null,
+          contacto: row.contacto || null,
+          rfc: row.rfc || null,
+          telefono: row.telefono || null,
+          email: row.email || null,
+          direccion: row.direccion || null,
+        };
+
+        const existingId = existingMap.get(
+          normalizeLookupKey([row.nombre, row.empresa || "", row.email || ""])
+        );
+
+        if (existingId) {
+          updates.push({ id: existingId, payload });
+        } else {
+          inserts.push(payload);
+        }
+      });
+
+      for (const update of updates) {
+        const { error } = await withTimeout(
+          supabase.from("proveedores").update(update.payload).eq("id", update.id),
+          "actualizar proveedores importados"
+        );
+
+        if (error) throw error;
+      }
+
+      if (inserts.length) {
+        const { error } = await withTimeout(
+          supabase.from("proveedores").insert(inserts),
+          "insertar proveedores importados"
+        );
+
+        if (error) throw error;
+      }
+
+      setMessage(
+        `Importacion completada. ${inserts.length} proveedor(es) nuevos y ${updates.length} actualizado(s).`
+      );
+      await loadProveedores();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error.message || "No se pudo importar el archivo de proveedores.");
+      setStatusDetail("La importacion se detuvo.");
+    } finally {
+      setSaving(false);
+      event.target.value = "";
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -349,6 +489,22 @@ export default function ProveedoresPage({ currentUser, companyId }) {
             <button type="button" className="secondary-btn" onClick={loadProveedores} disabled={loading}>
               {loading ? "Actualizando..." : "Recargar"}
             </button>
+          </div>
+
+          <div className="settings-inline-actions">
+            <button type="button" className="secondary-btn" onClick={handleDownloadTemplate}>
+              Descargar plantilla
+            </button>
+            <button type="button" className="secondary-btn" onClick={openImportDialog} disabled={saving}>
+              {saving ? "Importando..." : "Importar Excel"}
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleImportFile}
+              style={{ display: "none" }}
+            />
           </div>
 
           {errorMessage ? <p className="form-message form-message-error">{errorMessage}</p> : null}

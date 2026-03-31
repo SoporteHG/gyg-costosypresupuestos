@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import {
+  downloadExcelTemplate,
+  mapExcelRows,
+  normalizeLookupKey,
+  normalizeText,
+  readExcelRows,
+} from "../../lib/excel";
 
 const initialForm = {
   id: null,
@@ -14,6 +21,29 @@ const initialForm = {
 };
 
 const REQUEST_TIMEOUT_MS = 10000;
+const PRODUCT_TEMPLATE = [
+  {
+    SKU: "ABC001",
+    Nombre: "Cable de prueba",
+    Categoria: "Cableado",
+    Marca: "Condumex",
+    Unidad: "Rollo",
+    Descripcion: "Cable calibre 12 de ejemplo",
+    Costo: "850",
+    Precio: "1250",
+  },
+];
+
+const PRODUCT_HEADER_MAP = {
+  sku: ["SKU", "Codigo", "Codigo de barras"],
+  nombre: ["Nombre", "Producto"],
+  categoria: ["Categoria"],
+  marca: ["Marca"],
+  unidad: ["Unidad"],
+  descripcion: ["Descripcion"],
+  costo: ["Costo"],
+  precio: ["Precio"],
+};
 
 export default function ProductosPage({ currentUser, companyId }) {
   const [productos, setProductos] = useState([]);
@@ -24,6 +54,7 @@ export default function ProductosPage({ currentUser, companyId }) {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [statusDetail, setStatusDetail] = useState("Preparando carga...");
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     loadProductos();
@@ -250,6 +281,113 @@ export default function ProductosPage({ currentUser, companyId }) {
     }
   }
 
+  function handleDownloadTemplate() {
+    downloadExcelTemplate("plantilla-productos.xlsx", "Productos", PRODUCT_TEMPLATE);
+  }
+
+  function openImportDialog() {
+    importInputRef.current?.click();
+  }
+
+  async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSaving(true);
+      setMessage("");
+      setErrorMessage("");
+      setStatusDetail("Leyendo archivo de productos...");
+
+      const tenantId = companyId || getMyCompanyId();
+      const excelRows = await readExcelRows(file);
+      const mappedRows = mapExcelRows(excelRows, PRODUCT_HEADER_MAP)
+        .map((row) => ({
+          sku: normalizeText(row.sku),
+          nombre: normalizeText(row.nombre),
+          categoria: normalizeText(row.categoria),
+          marca: normalizeText(row.marca),
+          unidad: normalizeText(row.unidad),
+          descripcion: normalizeText(row.descripcion),
+          costo: Number(row.costo || 0),
+          precio: Number(row.precio || 0),
+        }))
+        .filter((row) => row.sku && row.nombre);
+
+      if (!mappedRows.length) {
+        throw new Error("El archivo no contiene productos validos. Usa la plantilla para importar.");
+      }
+
+      const { data: existingRows, error: existingError } = await withTimeout(
+        supabase
+          .from("productos")
+          .select("id, sku")
+          .eq("tenant_id", tenantId),
+        "consultar productos existentes"
+      );
+
+      if (existingError) throw existingError;
+
+      const existingMap = new Map(
+        (existingRows || []).map((row) => [normalizeLookupKey([row.sku]), row.id])
+      );
+
+      const updates = [];
+      const inserts = [];
+
+      mappedRows.forEach((row) => {
+        const payload = {
+          tenant_id: tenantId,
+          sku: row.sku,
+          nombre: row.nombre,
+          categoria: row.categoria || null,
+          marca: row.marca || null,
+          unidad: row.unidad || null,
+          descripcion: row.descripcion || null,
+          costo: Number.isFinite(row.costo) ? row.costo : 0,
+          precio: Number.isFinite(row.precio) ? row.precio : 0,
+        };
+
+        const existingId = existingMap.get(normalizeLookupKey([row.sku]));
+        if (existingId) {
+          updates.push({ id: existingId, payload });
+        } else {
+          inserts.push(payload);
+        }
+      });
+
+      for (const update of updates) {
+        const { error } = await withTimeout(
+          supabase.from("productos").update(update.payload).eq("id", update.id),
+          "actualizar productos importados"
+        );
+
+        if (error) throw error;
+      }
+
+      if (inserts.length) {
+        const { error } = await withTimeout(
+          supabase.from("productos").insert(inserts),
+          "insertar productos importados"
+        );
+
+        if (error) throw error;
+      }
+
+      setMessage(
+        `Importacion completada. ${inserts.length} producto(s) nuevos y ${updates.length} actualizado(s).`
+      );
+      await loadProductos();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error.message || "No se pudo importar el archivo de productos.");
+      setStatusDetail("La importacion se detuvo.");
+    } finally {
+      setSaving(false);
+      event.target.value = "";
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -392,6 +530,22 @@ export default function ProductosPage({ currentUser, companyId }) {
             <button type="button" className="secondary-btn" onClick={loadProductos} disabled={loading}>
               {loading ? "Actualizando..." : "Recargar"}
             </button>
+          </div>
+
+          <div className="settings-inline-actions">
+            <button type="button" className="secondary-btn" onClick={handleDownloadTemplate}>
+              Descargar plantilla
+            </button>
+            <button type="button" className="secondary-btn" onClick={openImportDialog} disabled={saving}>
+              {saving ? "Importando..." : "Importar Excel"}
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleImportFile}
+              style={{ display: "none" }}
+            />
           </div>
 
           {errorMessage ? <p className="form-message form-message-error">{errorMessage}</p> : null}
