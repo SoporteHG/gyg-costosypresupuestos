@@ -83,6 +83,15 @@ export async function getCurrentCompanyContext(userId) {
     throw new Error("No se pudo cargar la empresa activa.");
   }
 
+  const normalizedStatus = String(company.status || "active").toLowerCase();
+  if (normalizedStatus === "suspended") {
+    throw new Error("Tu empresa se encuentra suspendida. Contacta al administrador del sistema.");
+  }
+
+  if (normalizedStatus === "expired") {
+    throw new Error("Tu acceso ha vencido. Contacta al administrador para renovar tu plan.");
+  }
+
   const { data: branding, error: brandingError } = await withTimeout(
     supabase
       .from("company_branding")

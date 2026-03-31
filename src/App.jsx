@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { getCurrentCompanyContext } from "./lib/company";
+import { getAdminContext, logPlatformAccess } from "./lib/admin";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import AppLayout from "./components/layout/AppLayout";
@@ -13,25 +14,40 @@ import CotizacionesPage from "./pages/cotizaciones/CotizacionesPage";
 import PuntoVentaPage from "./pages/ventas/PuntoVentaPage";
 import ReportesPage from "./pages/reportes/ReportesPage";
 import ConfiguracionPage from "./pages/settings/ConfiguracionPage";
+import SuperAdminPage from "./pages/admin/SuperAdminPage";
 import LoginPage from "./pages/auth/LoginPage";
 
 function App() {
   const [session, setSession] = useState(undefined);
   const [companyContext, setCompanyContext] = useState(null);
   const [companyContextError, setCompanyContextError] = useState("");
+  const [adminContext, setAdminContext] = useState({
+    isSuperAdmin: false,
+    role: "user",
+    source: "none",
+  });
   const isLoadingCompanyRef = useRef(false);
+  const lastAuditKeyRef = useRef("");
 
   function handleLoggedOut() {
     setSession(null);
     setCompanyContext(null);
     setCompanyContextError("");
+    setAdminContext({
+      isSuperAdmin: false,
+      role: "user",
+      source: "none",
+    });
   }
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       if (data.session?.user) {
-        await loadCompanyContext(data.session.user.id);
+        await Promise.all([
+          loadCompanyContext(data.session.user.id),
+          loadAdminState(data.session.user),
+        ]);
       }
     });
 
@@ -40,9 +56,17 @@ function App() {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session?.user) {
-        await loadCompanyContext(session.user.id);
+        await Promise.all([
+          loadCompanyContext(session.user.id),
+          loadAdminState(session.user),
+        ]);
       } else {
         setCompanyContext(null);
+        setAdminContext({
+          isSuperAdmin: false,
+          role: "user",
+          source: "none",
+        });
       }
     });
 
@@ -70,6 +94,31 @@ function App() {
     }
   }
 
+  async function loadAdminState(user) {
+    const context = await getAdminContext(user);
+    setAdminContext(context);
+  }
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    const companyId = companyContext?.company?.id;
+
+    if (!userId || !companyId) {
+      return;
+    }
+
+    const auditKey = `${userId}:${companyId}`;
+    if (lastAuditKeyRef.current === auditKey) {
+      return;
+    }
+
+    lastAuditKeyRef.current = auditKey;
+    logPlatformAccess({
+      user: session.user,
+      company: companyContext.company,
+    });
+  }, [session?.user, companyContext?.company]);
+
   if (session === undefined) {
     return <div style={{ padding: 20 }}>Cargando...</div>;
   }
@@ -95,6 +144,7 @@ function App() {
       onLogout={handleLoggedOut}
       company={companyContext.company}
       branding={companyContext.branding}
+      isSuperAdmin={adminContext.isSuperAdmin}
     >
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -155,6 +205,16 @@ function App() {
               company={companyContext.company}
               branding={companyContext.branding}
             />
+          }
+        />
+        <Route
+          path="/administracion"
+          element={
+            adminContext.isSuperAdmin ? (
+              <SuperAdminPage currentUser={session.user} adminContext={adminContext} />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
           }
         />
         <Route

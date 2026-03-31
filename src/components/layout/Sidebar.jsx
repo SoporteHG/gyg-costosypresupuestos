@@ -7,12 +7,13 @@ import {
   FileText,
   ShoppingCart,
   BarChart3,
+  ShieldCheck,
   Settings,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import "./layout.css";
 
-export default function Sidebar({ company, branding }) {
+export default function Sidebar({ company, branding, isSuperAdmin }) {
   const companyName = branding?.business_name || company?.name || "Tu empresa";
   const companyInitials = companyName
     .split(" ")
@@ -81,6 +82,13 @@ export default function Sidebar({ company, branding }) {
           <BarChart3 size={18} />
           Reportes
         </NavLink>
+
+        {isSuperAdmin ? (
+          <NavLink to="/administracion" className="nav-link nav-link-admin">
+            <ShieldCheck size={18} />
+            Administracion
+          </NavLink>
+        ) : null}
 
         <NavLink to="/configuracion" className="nav-link">
           <Settings size={18} />

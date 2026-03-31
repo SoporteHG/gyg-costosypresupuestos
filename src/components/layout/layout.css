@@ -93,6 +93,20 @@
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.24);
 }
 
+.nav-link-admin {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+  border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.nav-link-admin:hover,
+.nav-link-admin.active {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgba(217, 119, 6, 0.24);
+}
+
 .main {
   flex: 1;
   min-height: 100vh;
@@ -1703,10 +1717,35 @@
   max-width: 220px;
 }
 
+.admin-hero-card {
+  overflow: hidden;
+}
+
+.admin-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-hero-tile {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #dbeafe;
+}
+
+.admin-hero-tile strong {
+  color: #0f172a;
+  font-size: 16px;
+}
+
 @media (max-width: 1024px) {
   .providers-form-grid,
   .inventory-form-grid,
-  .inventory-product-chip {
+  .inventory-product-chip,
+  .admin-hero-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1714,7 +1753,8 @@
 @media (max-width: 768px) {
   .providers-form-grid,
   .inventory-form-grid,
-  .inventory-product-chip {
+  .inventory-product-chip,
+  .admin-hero-grid {
     grid-template-columns: 1fr;
   }
 
