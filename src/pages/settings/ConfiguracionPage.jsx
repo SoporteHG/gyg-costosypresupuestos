@@ -187,7 +187,7 @@ export default function ConfiguracionPage({
     } catch (error) {
       console.error(error);
       setMessageType("error");
-      setMessage("Hubo un error al guardar la configuracion.");
+      setMessage(`Hubo un error al guardar la configuracion. ${error.message || ""}`.trim());
     } finally {
       setSaving(false);
     }
