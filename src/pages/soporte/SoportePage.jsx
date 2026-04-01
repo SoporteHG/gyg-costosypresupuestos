@@ -94,7 +94,7 @@ export default function SoportePage({ currentUser, companyId, company }) {
         supabase
           .from("support_tickets")
           .select(
-            "id, tenant_id, user_id, user_email, subject, module_name, category, priority, description, repro_steps, status, created_at, updated_at"
+            "id, tenant_id, user_id, user_email, ticket_number, subject, module_name, category, priority, description, repro_steps, status, created_at, updated_at"
           )
           .eq("tenant_id", tenantId)
           .eq("user_id", userId)
@@ -147,6 +147,7 @@ export default function SoportePage({ currentUser, companyId, company }) {
         user_id: userId,
         user_email: userEmail || null,
         company_name: company?.name || null,
+        ticket_number: buildSupportTicketNumber(),
         subject: form.asunto.trim(),
         module_name: form.modulo,
         category: form.categoria,
@@ -162,7 +163,7 @@ export default function SoportePage({ currentUser, companyId, company }) {
           .from("support_tickets")
           .insert(payload)
           .select(
-            "id, tenant_id, user_id, user_email, subject, module_name, category, priority, description, repro_steps, status, created_at, updated_at"
+            "id, tenant_id, user_id, user_email, ticket_number, subject, module_name, category, priority, description, repro_steps, status, created_at, updated_at"
           )
           .single(),
         "crear ticket de soporte"
@@ -327,7 +328,7 @@ export default function SoportePage({ currentUser, companyId, company }) {
                       <div>
                         <h3 className="quote-card-title">{ticket.subject}</h3>
                         <p className="quote-card-copy">
-                          {labelForModule(ticket.module_name)} | {labelForCategory(ticket.category)}
+                          {ticket.ticket_number || "Sin folio"} | {labelForModule(ticket.module_name)} | {labelForCategory(ticket.category)}
                         </p>
                       </div>
                       <div className="support-card-badges">
@@ -388,4 +389,11 @@ function formatDate(value) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function buildSupportTicketNumber() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const stamp = now.getTime().toString().slice(-6);
+  return `SUP-${year}-${stamp}`;
 }
