@@ -442,116 +442,119 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const signatureUrl = branding?.signature_url || "";
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const marginX = 42;
+      const marginX = 38;
       const contentWidth = pageWidth - marginX * 2;
       const issueDate = formatDate(cotizacion.created_at, false);
       const expiryDate = formatDate(calculateValidityDate(cotizacion.created_at, cotizacion.vigencia_dias), false);
-      const tableWidth = 82 + 172 + 62 + 58 + 78 + 80;
-      const panelWidth = Math.max(tableWidth, 520);
-      const panelX = marginX + (contentWidth - panelWidth) / 2;
-      const conditionsX = panelX + 286;
-      const clientAddressLines = pdf.splitTextToSize(cotizacion.cliente_direccion || "Sin direccion registrada", 188);
-      const notesValue = truncateSingleLine(cotizacion.notas || "Sin notas adicionales.", 34);
+      const infoLabelWidth = 68;
       const amountInWords = numberToSpanishWords(cotizacion.total, cotizacion.currency_code);
-
-      pdf.setFillColor(246, 248, 252);
-      pdf.rect(0, 0, pageWidth, pageHeight, "F");
-      pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
-      pdf.roundedRect(marginX, 32, contentWidth, 128, 22, 22, "F");
+      const topY = 38;
 
       pdf.setFillColor(255, 255, 255);
-      pdf.roundedRect(marginX + 18, 50, 84, 84, 22, 22, "F");
+      pdf.rect(0, 0, pageWidth, pageHeight, "F");
+      pdf.setDrawColor(226, 232, 240);
+      pdf.line(marginX, topY + 72, pageWidth - marginX, topY + 72);
 
       if (brandLogo) {
         try {
           const imageData = await getImageDataUrl(brandLogo);
-          pdf.addImage(imageData, "PNG", marginX + 28, 60, 64, 64);
+          pdf.addImage(imageData, "PNG", marginX, topY, 58, 58);
         } catch (error) {
           console.error("No se pudo cargar el logo para el PDF:", error);
         }
       } else {
         pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(24);
+        pdf.setFontSize(18);
         pdf.setTextColor(accentColor.r, accentColor.g, accentColor.b);
-        pdf.text(brandName.slice(0, 2).toUpperCase(), marginX + 60, 102, { align: "center" });
+        pdf.text(brandName.slice(0, 2).toUpperCase(), marginX + 29, topY + 35, { align: "center" });
       }
 
+      pdf.setTextColor(15, 23, 42);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(17);
+      pdf.text(brandName, marginX + 74, topY + 20);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(71, 85, 105);
+      pdf.text(companyEmail || "Sin correo", marginX + 74, topY + 38);
+      pdf.text(companyPhone || "Sin telefono", marginX + 74, topY + 52);
+      if (companyRfc) {
+        pdf.text(`RFC ${companyRfc}`, marginX + 74, topY + 66);
+      }
+
+      const folioBoxWidth = 160;
+      const folioBoxX = pageWidth - marginX - folioBoxWidth;
+      pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
+      pdf.rect(folioBoxX, topY, folioBoxWidth, 22, "F");
       pdf.setTextColor(255, 255, 255);
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(24);
-      pdf.text(brandName, marginX + 122, 82);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(11);
-      pdf.text(companyEmail || "Sin correo", marginX + 122, 104);
-      pdf.text(companyPhone || "Sin telefono", marginX + 122, 120);
-      if (companyRfc) {
-        pdf.text(`RFC ${companyRfc}`, marginX + 122, 136);
-      }
-
-      const folioBoxX = pageWidth - 198;
-      const folioBoxY = 56;
-      const folioBoxWidth = 138;
-      const folioBoxHeight = 60;
-      const folioCenterX = folioBoxX + folioBoxWidth / 2;
-
-      pdf.setFillColor(239, 246, 255);
-      pdf.roundedRect(folioBoxX, folioBoxY, folioBoxWidth, folioBoxHeight, 18, 18, "F");
-      pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9);
-      pdf.setTextColor(accentColor.r, accentColor.g, accentColor.b);
-      pdf.text("COTIZACION", folioCenterX, 74, { align: "center" });
+      pdf.text("COTIZACION", folioBoxX + folioBoxWidth / 2, topY + 15, { align: "center" });
+      pdf.setDrawColor(226, 232, 240);
+      pdf.rect(folioBoxX, topY + 22, folioBoxWidth, 42);
       pdf.setTextColor(15, 23, 42);
-      pdf.setFontSize(11);
-      pdf.text(cotizacion.folio || "Sin folio", folioCenterX, 92, { align: "center" });
+      pdf.setFontSize(12);
+      pdf.text(cotizacion.folio || "Sin folio", folioBoxX + 10, topY + 40);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
       pdf.setTextColor(71, 85, 105);
-      pdf.text(`Emision: ${issueDate}`, folioCenterX, 108, { align: "center" });
+      pdf.text(issueDate, folioBoxX + 10, topY + 56);
 
-      pdf.setDrawColor(226, 232, 240);
-      pdf.setFillColor(255, 255, 255);
-      pdf.roundedRect(panelX, 182, panelWidth, 132, 18, 18, "FD");
-      pdf.setTextColor(15, 23, 42);
+      const detailsTop = topY + 92;
+      const leftColX = marginX;
+      const rightColX = marginX + 300;
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(12);
-      pdf.text("Datos del cliente", panelX + 20, 206);
-      pdf.text("Condiciones", conditionsX, 206);
-
-      drawLabeledValue(pdf, "Cliente", cotizacion.cliente_nombre || "Cliente", panelX + 20, 232);
-      drawLabeledValue(pdf, "Empresa", cotizacion.cliente_empresa || "Sin empresa", panelX + 20, 252);
-      drawLabeledValue(pdf, "RFC", cotizacion.cliente_rfc || "Sin RFC", panelX + 20, 272);
-      drawLabeledValue(pdf, "Telefono", cotizacion.cliente_telefono || "Sin telefono", panelX + 20, 292);
-
-      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8.5);
       pdf.setTextColor(15, 23, 42);
-      pdf.text("Direccion", panelX + 20, 312);
+      pdf.text("Cliente", leftColX, detailsTop);
+      pdf.text("Empresa", leftColX, detailsTop + 18);
+      pdf.text("RFC", leftColX, detailsTop + 36);
+      pdf.text("Moneda", rightColX, detailsTop);
+      pdf.text("Fecha", rightColX, detailsTop + 18);
+      pdf.text("Estado", rightColX, detailsTop + 36);
+
       pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(71, 85, 105);
-      pdf.text(clientAddressLines, panelX + 88, 312);
+      pdf.setFontSize(9.2);
+      pdf.setTextColor(51, 65, 85);
+      pdf.text(String(cotizacion.cliente_nombre || "Cliente"), leftColX + infoLabelWidth, detailsTop);
+      pdf.text(String(cotizacion.cliente_empresa || "Sin empresa"), leftColX + infoLabelWidth, detailsTop + 18);
+      pdf.text(String(cotizacion.cliente_rfc || "Sin RFC"), leftColX + infoLabelWidth, detailsTop + 36);
+      pdf.text(String(cotizacion.currency_code || "MXN"), rightColX + 54, detailsTop);
+      pdf.text(issueDate, rightColX + 54, detailsTop + 18);
+      pdf.text(STATUS_META[cotizacion.estado]?.label || "Pendiente", rightColX + 54, detailsTop + 36);
 
-      drawLabeledValue(pdf, "Estado", STATUS_META[cotizacion.estado]?.label || "Pendiente", conditionsX, 232);
-      drawLabeledValue(
-        pdf,
-        "Vigencia",
-        `${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias`,
-        conditionsX,
-        252
-      );
-      drawLabeledValue(pdf, "Vence", expiryDate, conditionsX, 272);
-      drawLabeledValue(pdf, "IVA", `${Number(cotizacion.iva_rate || 0)}%`, conditionsX, 292);
-      drawLabeledValue(pdf, "Vendedor", cotizacion.vendedor_nombre || "Sin vendedor", conditionsX, 312);
+      const boxTop = topY + 164;
+      const boxGap = 8;
+      const boxWidth = (contentWidth - boxGap * 3) / 4;
+      const boxHeaderHeight = 20;
+      const boxBodyHeight = 28;
+      const boxData = [
+        { title: "Credito", value: cotizacion.cliente_condiciones_credito || "Sin condiciones" },
+        { title: "Vigencia", value: `${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias` },
+        { title: "Moneda", value: cotizacion.currency_code || "MXN" },
+        { title: "Vendedor", value: cotizacion.vendedor_nombre || "Sin vendedor" },
+      ];
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setTextColor(15, 23, 42);
-      pdf.text("Notas", conditionsX, 332);
-      pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(71, 85, 105);
-      pdf.setFontSize(10);
-      pdf.text(notesValue, conditionsX + 46, 332);
+      boxData.forEach((box, index) => {
+        const x = marginX + index * (boxWidth + boxGap);
+        pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
+        pdf.rect(x, boxTop, boxWidth, boxHeaderHeight, "F");
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(8.5);
+        pdf.text(box.title, x + boxWidth / 2, boxTop + 15, { align: "center" });
+        pdf.setDrawColor(203, 213, 225);
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(x, boxTop + boxHeaderHeight, boxWidth, boxBodyHeight, "FD");
+        pdf.setTextColor(15, 23, 42);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8.8);
+        pdf.text(truncateSingleLine(box.value, 24), x + 7, boxTop + boxHeaderHeight + 18);
+      });
 
       autoTable(pdf, {
-        startY: 340,
-        head: [["SKU", "Concepto", "Unidad", "Cantidad", "Precio unit.", "Importe"]],
+        startY: boxTop + boxHeaderHeight + boxBodyHeight + 18,
+        head: [["Articulo", "Nombre", "U. med.", "Unidades", "Precio", "Importe"]],
         body: (cotizacion.items || []).map((item) => [
           item.sku || "-",
           item.nombre || "-",
@@ -561,84 +564,83 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           formatCurrency(item.total, cotizacion.currency_code),
         ]),
         styles: {
-          fontSize: 10,
-          cellPadding: { top: 10, right: 8, bottom: 10, left: 8 },
+          fontSize: 9,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.6,
+          cellPadding: { top: 7, right: 6, bottom: 7, left: 6 },
           textColor: [30, 41, 59],
           valign: "middle",
         },
         headStyles: {
-          fillColor: [15, 23, 42],
+          fillColor: [accentColor.r, accentColor.g, accentColor.b],
           textColor: [255, 255, 255],
           fontStyle: "bold",
         },
         columnStyles: {
-          0: { cellWidth: 82 },
-          1: { cellWidth: 172 },
-          2: { cellWidth: 62 },
-          3: { halign: "center", cellWidth: 58 },
-          4: { halign: "right", cellWidth: 78 },
-          5: { halign: "right", cellWidth: 80 },
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 252],
+          0: { cellWidth: 72 },
+          1: { cellWidth: 186 },
+          2: { cellWidth: 56 },
+          3: { halign: "center", cellWidth: 60 },
+          4: { halign: "right", cellWidth: 72 },
+          5: { halign: "right", cellWidth: 72 },
         },
         margin: { left: marginX, right: marginX },
       });
 
-      const tableY = pdf.lastAutoTable?.finalY || 340;
-      const summaryWidth = 204;
-      const summaryX = marginX + Math.max(0, tableWidth - summaryWidth);
-      const summaryY = tableY + 24;
+      const tableY = pdf.lastAutoTable?.finalY || boxTop + 120;
+      const summaryWidth = 236;
+      const summaryX = pageWidth - marginX - summaryWidth;
+      const summaryY = tableY + 18;
       pdf.setFillColor(255, 255, 255);
       pdf.setDrawColor(226, 232, 240);
-      pdf.roundedRect(summaryX, summaryY, summaryWidth, 116, 18, 18, "FD");
+      pdf.rect(summaryX, summaryY, summaryWidth, 96, "FD");
       drawSummaryRow(
         pdf,
         "Subtotal",
         formatCurrency(cotizacion.subtotal, cotizacion.currency_code),
-        summaryX + 18,
-        summaryY + 28,
+        summaryX + 16,
+        summaryY + 24,
         false
       );
       drawSummaryRow(
         pdf,
         `IVA ${Number(cotizacion.iva_rate || 0)}%`,
         formatCurrency(cotizacion.iva_amount, cotizacion.currency_code),
-        summaryX + 18,
-        summaryY + 54,
+        summaryX + 16,
+        summaryY + 46,
         false
       );
       drawSummaryRow(
         pdf,
         "Total",
         formatCurrency(cotizacion.total, cotizacion.currency_code),
-        summaryX + 18,
-        summaryY + 86,
+        summaryX + 16,
+        summaryY + 74,
         true
       );
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
       pdf.setTextColor(71, 85, 105);
-      const amountLines = pdf.splitTextToSize(`Importe en letra: ${amountInWords}`, 188);
-      pdf.text(amountLines, summaryX + 18, summaryY + 104);
+      const amountLines = pdf.splitTextToSize(`Importe en letra: ${amountInWords}`, contentWidth - 12);
+      pdf.text(amountLines, marginX, summaryY + 122);
 
-      const signatureY = summaryY + 160;
+      const signatureY = summaryY + 170;
       pdf.setDrawColor(203, 213, 225);
       pdf.line(marginX, signatureY, marginX + 180, signatureY);
       pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(11);
-      pdf.setTextColor(15, 23, 42);
-      pdf.text("Firma / sello", marginX, signatureY + 18);
-      pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
+      pdf.setTextColor(15, 23, 42);
+      pdf.text("Firma / sello", marginX, signatureY + 15);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
       pdf.setTextColor(100, 116, 139);
-      pdf.text(brandName, marginX, signatureY + 34);
+      pdf.text(brandName, marginX, signatureY + 29);
 
       if (signatureUrl) {
         try {
           const signatureData = await getImageDataUrl(signatureUrl);
-          pdf.addImage(signatureData, "PNG", marginX + 12, signatureY - 54, 120, 42);
+          pdf.addImage(signatureData, "PNG", marginX + 8, signatureY - 48, 110, 38);
         } catch (error) {
           console.error("No se pudo cargar la firma para el PDF:", error);
         }
@@ -648,7 +650,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setDrawColor(203, 213, 225);
       pdf.line(marginX, footerY - 14, pageWidth - marginX, footerY - 14);
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
+      pdf.setFontSize(8.5);
       pdf.setTextColor(100, 116, 139);
       const footerLines = pdf.splitTextToSize(companyFooter, pageWidth - 220);
       pdf.text(footerLines, marginX, footerY);
@@ -1045,39 +1047,48 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
       <head>
         <title>${escapeHtml(cotizacion.folio || "Cotizacion")}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 34px; color: #0f172a; background: #f8fafc; }
-          .sheet { background: #fff; border-radius: 24px; overflow: hidden; max-width: 820px; margin: 0 auto; }
-          .hero { background: ${brandColor}; color: #fff; padding: 28px 34px; display: flex; justify-content: space-between; gap: 20px; }
-          .hero-brand { display: flex; gap: 18px; align-items: center; }
-          .hero-logo { width: 78px; height: 78px; border-radius: 20px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; color: ${brandColor}; font-weight: 800; }
+          body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; padding: 28px; color: #0f172a; background: #ffffff; }
+          .sheet { background: #fff; max-width: 920px; margin: 0 auto; }
+          .hero { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; padding-bottom: 14px; border-bottom: 1px solid #cbd5e1; }
+          .hero-brand { display: flex; gap: 16px; align-items: flex-start; }
+          .hero-logo { width: 62px; height: 62px; background: #fff; border: 1px solid #dbe3ef; display: flex; align-items: center; justify-content: center; overflow: hidden; color: ${brandColor}; font-weight: 800; }
           .hero-logo img { width: 100%; height: 100%; object-fit: cover; }
-          .hero h1 { margin: 0 0 8px; font-size: 30px; }
-          .hero p { margin: 3px 0; opacity: 0.92; }
-          .folio { background: #fff; color: #0f172a; border-radius: 20px; padding: 14px 16px; min-width: 164px; text-align: center; }
-          .folio strong { display: block; font-size: 15px; margin-top: 6px; line-height: 1.3; }
-          .folio .label { font-size: 11px; }
-          .folio .value { font-size: 11px; }
-          .body { padding: 28px 34px 34px; }
-          .summary-grid { display: grid; grid-template-columns: 1.08fr 0.84fr; gap: 12px; margin: 0 auto 20px; max-width: 760px; }
-          .panel { border: 1px solid #e2e8f0; border-radius: 18px; padding: 15px; }
-          .panel h3 { margin: 0 0 10px; font-size: 16px; }
-          .row { margin-bottom: 7px; }
-          .label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
-          .value { color: #0f172a; font-size: 12px; font-weight: 600; }
-          .panel-conditions .value { font-size: 11px; }
-          .panel-conditions { padding-left: 13px; padding-right: 13px; }
-          .panel-conditions .row:last-child .value { white-space: nowrap; }
-          table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-          th, td { padding: 11px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 13px; }
-          th { background: #0f172a; color: #fff; font-size: 12px; }
-          .totals { width: 304px; margin: 20px 48px 0 auto; border: 1px solid #e2e8f0; border-radius: 18px; padding: 16px 18px; }
-          .totals-row { display: grid; grid-template-columns: 1fr auto; gap: 18px; margin-bottom: 12px; align-items: center; }
-          .totals-row span:first-child { color: #475569; }
+          .hero h1 { margin: 0 0 6px; font-size: 20px; color: #0f172a; }
+          .hero p { margin: 2px 0; color: #475569; font-size: 10px; }
+          .folio { min-width: 170px; }
+          .folio-top { background: ${brandColor}; color: #fff; font-weight: 700; text-align: center; font-size: 11px; padding: 6px 10px; }
+          .folio-body { border: 1px solid #cbd5e1; border-top: none; padding: 10px 12px; }
+          .folio-body strong { display: block; font-size: 14px; margin-bottom: 5px; }
+          .folio-body div { font-size: 10px; color: #475569; }
+          .body { padding-top: 16px; }
+          .client-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 24px; margin-bottom: 18px; }
+          .client-col { display: grid; gap: 10px; }
+          .line { display: grid; grid-template-columns: 68px 1fr; gap: 12px; align-items: start; }
+          .label { color: #0f172a; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+          .value { color: #334155; font-size: 11px; line-height: 1.35; }
+          .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+          .meta-card { min-width: 0; }
+          .meta-head { background: ${brandColor}; color: #fff; font-size: 11px; font-weight: 700; text-align: center; padding: 5px 8px; }
+          .meta-body { border: 1px solid #cbd5e1; border-top: none; padding: 8px 10px; font-size: 10px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
+          col.col-articulo { width: 14%; }
+          col.col-nombre { width: 43%; }
+          col.col-unidad { width: 12%; }
+          col.col-cantidad { width: 13%; }
+          col.col-precio { width: 9%; }
+          col.col-importe { width: 9%; }
+          th, td { padding: 7px 7px; border: 1px solid #dbe3ef; text-align: left; font-size: 10.5px; }
+          th { background: ${brandColor}; color: #fff; font-size: 10px; }
+          td { word-wrap: break-word; }
+          td:nth-child(4), td:nth-child(5), td:nth-child(6), th:nth-child(4), th:nth-child(5), th:nth-child(6) { text-align: right; }
+          .totals { width: 280px; margin: 18px 0 0 auto; }
+          .totals-row { display: grid; grid-template-columns: 1fr auto; gap: 18px; padding: 6px 0; align-items: center; }
+          .totals-row span:first-child { color: #475569; font-size: 11px; }
           .totals-row strong { min-width: 120px; text-align: right; display: inline-block; }
-          .totals-row:last-child { margin-bottom: 0; font-size: 18px; font-weight: 800; }
-          .amount-words { margin-top: 12px; color: #475569; font-size: 12px; line-height: 1.5; }
-          .signature { margin-top: 52px; width: 220px; border-top: 1px solid #94a3b8; padding-top: 10px; }
-          .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 11px; display: flex; justify-content: space-between; gap: 18px; }
+          .totals-row.total { border-top: 1px solid #cbd5e1; margin-top: 4px; padding-top: 10px; font-size: 15px; font-weight: 800; }
+          .amount-words { margin-top: 10px; color: #475569; font-size: 10px; line-height: 1.4; }
+          .signature { margin-top: 44px; width: 220px; border-top: 1px solid #94a3b8; padding-top: 8px; }
+          .footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 9px; display: flex; justify-content: space-between; gap: 18px; }
           .footer-copy { max-width: 70%; }
           .footer-author { text-align: right; white-space: nowrap; }
         </style>
@@ -1098,41 +1109,60 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               </div>
             </div>
             <div class="folio">
-              <div class="label">Cotizacion</div>
-              <strong>${escapeHtml(cotizacion.folio || "Sin folio")}</strong>
-              <div class="row"><span class="label">Emision</span><div class="value">${escapeHtml(formatDate(cotizacion.created_at, false))}</div></div>
+              <div class="folio-top">COTIZACION</div>
+              <div class="folio-body">
+                <strong>${escapeHtml(cotizacion.folio || "Sin folio")}</strong>
+                <div>${escapeHtml(formatDate(cotizacion.created_at, false))}</div>
+              </div>
             </div>
           </div>
           <div class="body">
-            <div class="summary-grid">
-              <div class="panel panel-client">
-                <h3>Cliente</h3>
-                <div class="row"><div class="label">Nombre</div><div class="value">${escapeHtml(cotizacion.cliente_nombre || "Cliente")}</div></div>
-                <div class="row"><div class="label">Empresa</div><div class="value">${escapeHtml(cotizacion.cliente_empresa || "Sin empresa")}</div></div>
-                <div class="row"><div class="label">RFC</div><div class="value">${escapeHtml(cotizacion.cliente_rfc || "Sin RFC")}</div></div>
-                <div class="row"><div class="label">Telefono</div><div class="value">${escapeHtml(cotizacion.cliente_telefono || "Sin telefono")}</div></div>
-                <div class="row"><div class="label">Direccion</div><div class="value">${escapeHtml(cotizacion.cliente_direccion || "Sin direccion")}</div></div>
+            <div class="client-grid">
+              <div class="client-col">
+                <div class="line"><div class="label">Cliente</div><div class="value">${escapeHtml(cotizacion.cliente_nombre || "Cliente")}</div></div>
+                <div class="line"><div class="label">Empresa</div><div class="value">${escapeHtml(cotizacion.cliente_empresa || "Sin empresa")}</div></div>
+                <div class="line"><div class="label">RFC</div><div class="value">${escapeHtml(cotizacion.cliente_rfc || "Sin RFC")}</div></div>
               </div>
-              <div class="panel panel-conditions">
-                <h3>Condiciones</h3>
-                <div class="row"><div class="label">Estado</div><div class="value">${escapeHtml(STATUS_META[cotizacion.estado]?.label || "Pendiente")}</div></div>
-                <div class="row"><div class="label">Vigencia</div><div class="value">${escapeHtml(`${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias`)}</div></div>
-                <div class="row"><div class="label">Vence</div><div class="value">${escapeHtml(validityDate)}</div></div>
-                <div class="row"><div class="label">IVA</div><div class="value">${escapeHtml(`${Number(cotizacion.iva_rate || 0)}%`)}</div></div>
-                <div class="row"><div class="label">Vendedor</div><div class="value">${escapeHtml(cotizacion.vendedor_nombre || "Sin vendedor")}</div></div>
-                <div class="row"><div class="label">Moneda</div><div class="value">${escapeHtml(cotizacion.currency_code || "MXN")}</div></div>
-                <div class="row"><div class="label">Credito</div><div class="value">${escapeHtml(cotizacion.cliente_condiciones_credito || "Sin condiciones registradas.")}</div></div>
-                <div class="row"><div class="label">Notas</div><div class="value">${escapeHtml(cotizacion.notas || "Sin notas adicionales.")}</div></div>
+              <div class="client-col">
+                <div class="line"><div class="label">Telefono</div><div class="value">${escapeHtml(cotizacion.cliente_telefono || "Sin telefono")}</div></div>
+                <div class="line"><div class="label">Direccion</div><div class="value">${escapeHtml(cotizacion.cliente_direccion || "Sin direccion")}</div></div>
+                <div class="line"><div class="label">Moneda</div><div class="value">${escapeHtml(cotizacion.currency_code || "MXN")}</div></div>
+              </div>
+            </div>
+            <div class="meta-grid">
+              <div class="meta-card">
+                <div class="meta-head">Credito</div>
+                <div class="meta-body">${escapeHtml(cotizacion.cliente_condiciones_credito || "Sin condiciones")}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-head">Vigencia</div>
+                <div class="meta-body">${escapeHtml(`${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias`)}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-head">Moneda</div>
+                <div class="meta-body">${escapeHtml(cotizacion.currency_code || "MXN")}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-head">Vendedor</div>
+                <div class="meta-body">${escapeHtml(cotizacion.vendedor_nombre || "Sin vendedor")}</div>
               </div>
             </div>
             <table>
+              <colgroup>
+                <col class="col-articulo" />
+                <col class="col-nombre" />
+                <col class="col-unidad" />
+                <col class="col-cantidad" />
+                <col class="col-precio" />
+                <col class="col-importe" />
+              </colgroup>
               <thead>
                 <tr>
-                  <th>SKU</th>
-                  <th>Concepto</th>
-                  <th>Unidad</th>
-                  <th>Cantidad</th>
-                  <th>Precio unit.</th>
+                  <th>Articulo</th>
+                  <th>Nombre</th>
+                  <th>U. med.</th>
+                  <th>Unidades</th>
+                  <th>Precio</th>
                   <th>Importe</th>
                 </tr>
               </thead>
@@ -1141,7 +1171,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
             <div class="totals">
               <div class="totals-row"><span>Subtotal</span><strong>${formatCurrency(cotizacion.subtotal, cotizacion.currency_code)}</strong></div>
               <div class="totals-row"><span>IVA ${Number(cotizacion.iva_rate || 0)}%</span><strong>${formatCurrency(cotizacion.iva_amount, cotizacion.currency_code)}</strong></div>
-              <div class="totals-row"><span>Total</span><strong>${formatCurrency(cotizacion.total, cotizacion.currency_code)}</strong></div>
+              <div class="totals-row total"><span>Total</span><strong>${formatCurrency(cotizacion.total, cotizacion.currency_code)}</strong></div>
               <div class="amount-words">Importe en letra: ${escapeHtml(amountInWords)}</div>
             </div>
             <div class="signature">
