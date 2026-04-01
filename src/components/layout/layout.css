@@ -1639,13 +1639,16 @@
   }
 }
 .providers-layout,
-.inventory-layout {
+.inventory-layout,
+.vendors-layout {
   display: grid;
   gap: 18px;
 }
 
 .providers-form-card,
 .providers-catalog-card,
+.vendors-form-card,
+.vendors-catalog-card,
 .inventory-form-card,
 .inventory-stock-card,
 .inventory-history-card {
@@ -1653,13 +1656,15 @@
 }
 
 .providers-form,
-.inventory-form {
+.inventory-form,
+.vendors-form {
   display: grid;
   gap: 18px;
 }
 
 .providers-form-grid,
-.inventory-form-grid {
+.inventory-form-grid,
+.vendors-form-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
@@ -1667,17 +1672,23 @@
 }
 
 .providers-form-grid .form-group-full,
-.inventory-form-grid .form-group-full {
+.inventory-form-grid .form-group-full,
+.vendors-form-grid .form-group-full {
   grid-column: 1 / -1;
 }
 
 .providers-actions,
-.inventory-actions {
+.inventory-actions,
+.vendors-actions {
   margin-top: 0;
 }
 
 .providers-table {
   min-width: 1160px;
+}
+
+.vendors-table {
+  min-width: 860px;
 }
 
 .inventory-stock-table {
@@ -1701,6 +1712,29 @@
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+}
+
+.vendors-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.vendors-number-field {
+  max-width: 220px;
+}
+
+.vendors-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+}
+
+.vendors-toggle-label input {
+  width: 18px;
+  height: 18px;
 }
 
 .inventory-product-chip {
@@ -1743,6 +1777,7 @@
 
 @media (max-width: 1024px) {
   .providers-form-grid,
+  .vendors-form-grid,
   .inventory-form-grid,
   .inventory-product-chip,
   .admin-hero-grid {
@@ -1752,6 +1787,7 @@
 
 @media (max-width: 768px) {
   .providers-form-grid,
+  .vendors-form-grid,
   .inventory-form-grid,
   .inventory-product-chip,
   .admin-hero-grid {

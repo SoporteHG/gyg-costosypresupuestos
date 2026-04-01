@@ -19,6 +19,7 @@ const initialItem = {
 
 const initialForm = {
   clienteId: "",
+  vendedorId: "",
   estado: "pendiente",
   vigenciaDias: String(DEFAULT_VALIDITY_DAYS),
   ivaRate: String(DEFAULT_IVA_RATE),
@@ -44,6 +45,7 @@ const STATUS_META = {
 
 export default function CotizacionesPage({ currentUser, companyId, company, branding }) {
   const [clientes, setClientes] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
   const [productos, setProductos] = useState([]);
   const [cotizaciones, setCotizaciones] = useState([]);
   const [form, setForm] = useState(initialForm);
@@ -76,6 +78,11 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
   const selectedClient = useMemo(
     () => clientes.find((cliente) => cliente.id === form.clienteId) || null,
     [clientes, form.clienteId]
+  );
+
+  const selectedSeller = useMemo(
+    () => vendedores.find((vendedor) => vendedor.id === form.vendedorId) || null,
+    [vendedores, form.vendedorId]
   );
 
   const totals = useMemo(() => {
@@ -131,7 +138,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const tenantId = requireCompanyId();
       setStatusDetail("Cargando clientes y productos...");
 
-      const [clientesResult, productosResult, cotizacionesResult] = await Promise.allSettled([
+      const [clientesResult, vendedoresResult, productosResult, cotizacionesResult] = await Promise.allSettled([
         withTimeout(
           supabase
             .from("clientes")
@@ -139,6 +146,15 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             .eq("tenant_id", tenantId)
             .order("nombre", { ascending: true }),
           "consultar clientes"
+        ),
+        withTimeout(
+          supabase
+            .from("vendedores")
+            .select("id, nombre, email, telefono, comision, activo")
+            .eq("tenant_id", tenantId)
+            .eq("activo", true)
+            .order("nombre", { ascending: true }),
+          "consultar vendedores"
         ),
         withTimeout(
           supabase
@@ -152,7 +168,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           supabase
             .from("cotizaciones")
             .select(
-              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_email, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
             )
             .eq("tenant_id", tenantId)
             .order("created_at", { ascending: false }),
@@ -161,15 +177,19 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       ]);
 
       if (clientesResult.status === "rejected") throw clientesResult.reason;
+      if (vendedoresResult.status === "rejected") throw vendedoresResult.reason;
       if (productosResult.status === "rejected") throw productosResult.reason;
 
       const clientesResponse = clientesResult.value;
+      const vendedoresResponse = vendedoresResult.value;
       const productosResponse = productosResult.value;
 
       if (clientesResponse.error) throw clientesResponse.error;
+      if (vendedoresResponse.error) throw vendedoresResponse.error;
       if (productosResponse.error) throw productosResponse.error;
 
       setClientes(clientesResponse.data || []);
+      setVendedores(vendedoresResponse.data || []);
       setProductos(productosResponse.data || []);
 
       let cotizacionesData = [];
@@ -191,7 +211,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       }
 
       setStatusDetail(
-        `Carga completa: ${cotizacionesData.length || 0} cotizacion(es), ${clientesResponse.data?.length || 0} cliente(s), ${productosResponse.data?.length || 0} producto(s).`
+        `Carga completa: ${cotizacionesData.length || 0} cotizacion(es), ${clientesResponse.data?.length || 0} cliente(s), ${vendedoresResponse.data?.length || 0} vendedor(es), ${productosResponse.data?.length || 0} producto(s).`
       );
     } catch (error) {
       console.error(error);
@@ -326,6 +346,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         cliente_direccion: selectedClient?.direccion || null,
         cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
         cliente_centro_costos: selectedClient?.centro_costos || "MXN",
+        vendedor_id: selectedSeller?.id || null,
+        vendedor_nombre: selectedSeller?.nombre || null,
+        vendedor_email: selectedSeller?.email || null,
         currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
         estado: form.estado,
         vigencia_dias: Number(form.vigenciaDias || 0),
@@ -343,7 +366,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           .from("cotizaciones")
           .insert(payload)
           .select(
-            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_email, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
           )
           .single(),
         "crear cotizacion"
@@ -408,6 +431,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       cliente_direccion: selectedClient?.direccion || null,
       cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
       cliente_centro_costos: selectedClient?.centro_costos || form.currencyCode,
+      vendedor_id: selectedSeller?.id || null,
+      vendedor_nombre: selectedSeller?.nombre || null,
+      vendedor_email: selectedSeller?.email || null,
       currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
       estado: form.estado,
       vigencia_dias: Number(form.vigenciaDias || 0),
@@ -694,6 +720,22 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
               </div>
 
               <div className="form-group">
+                <label>Vendedor</label>
+                <select
+                  value={form.vendedorId}
+                  onChange={(event) => updateFormField("vendedorId", event.target.value)}
+                  className="quotes-select"
+                >
+                  <option value="">Asignar despues</option>
+                  {vendedores.map((vendedor) => (
+                    <option key={vendedor.id} value={vendedor.id}>
+                      {vendedor.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label>Estado</label>
                 <select
                   value={form.estado}
@@ -762,6 +804,10 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
               <div className="quotes-client-address">
                 <span className="quotes-summary-label">Condiciones de credito</span>
                 <strong>{selectedClient?.condiciones_credito || "Sin condiciones registradas"}</strong>
+              </div>
+              <div>
+                <span className="quotes-summary-label">Vendedor</span>
+                <strong>{selectedSeller?.nombre || "Sin asignar"}</strong>
               </div>
             </div>
 
@@ -961,6 +1007,10 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                     </div>
 
                     <p className="quote-card-notes">
+                      Vendedor: {cotizacion.vendedor_nombre || "Sin asignar"} | Vigencia:{" "}
+                      {cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias
+                    </p>
+                    <p className="quote-card-notes">
                       Moneda: {cotizacion.currency_code || "MXN"} | Credito:{" "}
                       {cotizacion.cliente_condiciones_credito || "Sin condiciones registradas."}
                     </p>
@@ -1106,6 +1156,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
                 <div class="row"><div class="label">Vence</div><div class="value">${escapeHtml(validityDate)}</div></div>
                 <div class="row"><div class="label">IVA</div><div class="value">${escapeHtml(`${Number(cotizacion.iva_rate || 0)}%`)}</div></div>
                 <div class="row"><div class="label">Moneda</div><div class="value">${escapeHtml(cotizacion.currency_code || "MXN")}</div></div>
+                <div class="row"><div class="label">Vendedor</div><div class="value">${escapeHtml(cotizacion.vendedor_nombre || "Sin asignar")}</div></div>
                 <div class="row"><div class="label">Credito</div><div class="value">${escapeHtml(cotizacion.cliente_condiciones_credito || "Sin condiciones registradas.")}</div></div>
                 <div class="row"><div class="label">Notas</div><div class="value">${escapeHtml(cotizacion.notas || "Sin notas adicionales.")}</div></div>
               </div>

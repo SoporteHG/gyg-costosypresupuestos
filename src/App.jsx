@@ -10,6 +10,7 @@ import ClientesPage from "./pages/clientes/ClientesManagerPage";
 import ProductosPage from "./pages/productos/ProductosPage";
 import InventarioPage from "./pages/inventario/InventarioPage";
 import ProveedoresPage from "./pages/proveedores/ProveedoresPage";
+import VendedoresPage from "./pages/vendedores/VendedoresPage";
 import CotizacionesPage from "./pages/cotizaciones/CotizacionesPage";
 import PuntoVentaPage from "./pages/ventas/PuntoVentaPage";
 import ReportesPage from "./pages/reportes/ReportesPage";
@@ -174,6 +175,10 @@ function App() {
         <Route
           path="/proveedores"
           element={<ProveedoresPage currentUser={session.user} companyId={companyContext.companyId} />}
+        />
+        <Route
+          path="/vendedores"
+          element={<VendedoresPage currentUser={session.user} companyId={companyContext.companyId} />}
         />
         <Route
           path="/cotizaciones"

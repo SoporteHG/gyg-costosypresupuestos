@@ -4,6 +4,7 @@ import {
   Package,
   Boxes,
   Truck,
+  BadgeDollarSign,
   FileText,
   ShoppingCart,
   BarChart3,
@@ -66,6 +67,11 @@ export default function Sidebar({ company, branding, isSuperAdmin }) {
         <NavLink to="/proveedores" className="nav-link">
           <Truck size={18} />
           Proveedores
+        </NavLink>
+
+        <NavLink to="/vendedores" className="nav-link">
+          <BadgeDollarSign size={18} />
+          Vendedores
         </NavLink>
 
         <NavLink to="/cotizaciones" className="nav-link">
