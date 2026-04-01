@@ -6,10 +6,6 @@ import autoTable from "jspdf-autotable";
 const REQUEST_TIMEOUT_MS = 10000;
 const DEFAULT_IVA_RATE = 16;
 const DEFAULT_VALIDITY_DAYS = 15;
-const QUOTE_SELECT_FULL =
-  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_email, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
-const QUOTE_SELECT_LEGACY =
-  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
 
 const initialItem = {
   id: crypto.randomUUID(),
@@ -23,7 +19,6 @@ const initialItem = {
 
 const initialForm = {
   clienteId: "",
-  vendedorId: "",
   estado: "pendiente",
   vigenciaDias: String(DEFAULT_VALIDITY_DAYS),
   ivaRate: String(DEFAULT_IVA_RATE),
@@ -49,7 +44,6 @@ const STATUS_META = {
 
 export default function CotizacionesPage({ currentUser, companyId, company, branding }) {
   const [clientes, setClientes] = useState([]);
-  const [vendedores, setVendedores] = useState([]);
   const [productos, setProductos] = useState([]);
   const [cotizaciones, setCotizaciones] = useState([]);
   const [form, setForm] = useState(initialForm);
@@ -84,11 +78,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     [clientes, form.clienteId]
   );
 
-  const selectedSeller = useMemo(
-    () => vendedores.find((vendedor) => vendedor.id === form.vendedorId) || null,
-    [vendedores, form.vendedorId]
-  );
-
   const totals = useMemo(() => {
     const subtotal = form.items.reduce((accumulator, item) => {
       const cantidad = Number(item.cantidad || 0);
@@ -107,7 +96,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     };
   }, [form.items, form.ivaRate]);
 
-async function withTimeout(promise, label) {
+  async function withTimeout(promise, label) {
     let timeoutId;
 
     const timeoutPromise = new Promise((_, reject) => {
@@ -142,7 +131,7 @@ async function withTimeout(promise, label) {
       const tenantId = requireCompanyId();
       setStatusDetail("Cargando clientes y productos...");
 
-      const [clientesResult, vendedoresResult, productosResult, cotizacionesResult] = await Promise.allSettled([
+      const [clientesResult, productosResult, cotizacionesResult] = await Promise.allSettled([
         withTimeout(
           supabase
             .from("clientes")
@@ -151,7 +140,6 @@ async function withTimeout(promise, label) {
             .order("nombre", { ascending: true }),
           "consultar clientes"
         ),
-        loadOptionalVendedores(tenantId),
         withTimeout(
           supabase
             .from("productos")
@@ -160,7 +148,16 @@ async function withTimeout(promise, label) {
             .order("nombre", { ascending: true }),
           "consultar productos"
         ),
-        loadCotizacionesWithFallback(tenantId),
+        withTimeout(
+          supabase
+            .from("cotizaciones")
+            .select(
+              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+            )
+            .eq("tenant_id", tenantId)
+            .order("created_at", { ascending: false }),
+          "consultar cotizaciones"
+        ),
       ]);
 
       if (clientesResult.status === "rejected") throw clientesResult.reason;
@@ -175,29 +172,26 @@ async function withTimeout(promise, label) {
       setClientes(clientesResponse.data || []);
       setProductos(productosResponse.data || []);
 
-      const vendedoresData =
-        vendedoresResult.status === "fulfilled" ? vendedoresResult.value.data || [] : [];
-      const vendedoresWarning =
-        vendedoresResult.status === "fulfilled"
-          ? vendedoresResult.value.warning || ""
-          : vendedoresResult.reason?.message || "No se pudieron cargar los vendedores.";
+      let cotizacionesData = [];
+      let cotizacionesWarning = "";
 
-      setVendedores(vendedoresData);
-
-      const cotizacionesData =
-        cotizacionesResult.status === "fulfilled" ? cotizacionesResult.value.data || [] : [];
-      const cotizacionesWarning =
-        cotizacionesResult.status === "fulfilled"
-          ? cotizacionesResult.value.warning || ""
-          : cotizacionesResult.reason?.message || "No se pudieron cargar las cotizaciones.";
+      if (cotizacionesResult.status === "fulfilled") {
+        if (cotizacionesResult.value.error) {
+          cotizacionesWarning = cotizacionesResult.value.error.message || "No se pudieron cargar las cotizaciones.";
+        } else {
+          cotizacionesData = cotizacionesResult.value.data || [];
+        }
+      } else {
+        cotizacionesWarning = cotizacionesResult.reason?.message || "No se pudieron cargar las cotizaciones.";
+      }
 
       setCotizaciones(cotizacionesData);
-      if (cotizacionesWarning || vendedoresWarning) {
-        setErrorMessage(cotizacionesWarning || vendedoresWarning);
+      if (cotizacionesWarning) {
+        setErrorMessage(cotizacionesWarning);
       }
 
       setStatusDetail(
-        `Carga completa: ${cotizacionesData.length || 0} cotizacion(es), ${clientesResponse.data?.length || 0} cliente(s), ${vendedoresData.length || 0} vendedor(es), ${productosResponse.data?.length || 0} producto(s).`
+        `Carga completa: ${cotizacionesData.length || 0} cotizacion(es), ${clientesResponse.data?.length || 0} cliente(s), ${productosResponse.data?.length || 0} producto(s).`
       );
     } catch (error) {
       console.error(error);
@@ -332,9 +326,6 @@ async function withTimeout(promise, label) {
         cliente_direccion: selectedClient?.direccion || null,
         cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
         cliente_centro_costos: selectedClient?.centro_costos || "MXN",
-        vendedor_id: selectedSeller?.id || null,
-        vendedor_nombre: selectedSeller?.nombre || null,
-        vendedor_email: selectedSeller?.email || null,
         currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
         estado: form.estado,
         vigencia_dias: Number(form.vigenciaDias || 0),
@@ -347,36 +338,16 @@ async function withTimeout(promise, label) {
         created_at: createdAt,
       };
 
-      let response = await withTimeout(
-        supabase.from("cotizaciones").insert(payload).select(QUOTE_SELECT_FULL).single(),
+      const { data, error } = await withTimeout(
+        supabase
+          .from("cotizaciones")
+          .insert(payload)
+          .select(
+            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+          )
+          .single(),
         "crear cotizacion"
       );
-
-      if (response.error && isMissingSchemaError(response.error)) {
-        const legacyPayload = { ...payload };
-        delete legacyPayload.vendedor_id;
-        delete legacyPayload.vendedor_nombre;
-        delete legacyPayload.vendedor_email;
-
-        response = await withTimeout(
-          supabase.from("cotizaciones").insert(legacyPayload).select(QUOTE_SELECT_LEGACY).single(),
-          "crear cotizacion"
-        );
-
-        if (!response.error && response.data) {
-          response = {
-            ...response,
-            data: {
-              ...response.data,
-              vendedor_id: null,
-              vendedor_nombre: null,
-              vendedor_email: null,
-            },
-          };
-        }
-      }
-
-      const { data, error } = response;
 
       if (error) throw error;
 
@@ -437,9 +408,6 @@ async function withTimeout(promise, label) {
       cliente_direccion: selectedClient?.direccion || null,
       cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
       cliente_centro_costos: selectedClient?.centro_costos || form.currencyCode,
-      vendedor_id: selectedSeller?.id || null,
-      vendedor_nombre: selectedSeller?.nombre || null,
-      vendedor_email: selectedSeller?.email || null,
       currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
       estado: form.estado,
       vigencia_dias: Number(form.vigenciaDias || 0),
@@ -726,22 +694,6 @@ async function withTimeout(promise, label) {
               </div>
 
               <div className="form-group">
-                <label>Vendedor</label>
-                <select
-                  value={form.vendedorId}
-                  onChange={(event) => updateFormField("vendedorId", event.target.value)}
-                  className="quotes-select"
-                >
-                  <option value="">Asignar despues</option>
-                  {vendedores.map((vendedor) => (
-                    <option key={vendedor.id} value={vendedor.id}>
-                      {vendedor.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
                 <label>Estado</label>
                 <select
                   value={form.estado}
@@ -810,10 +762,6 @@ async function withTimeout(promise, label) {
               <div className="quotes-client-address">
                 <span className="quotes-summary-label">Condiciones de credito</span>
                 <strong>{selectedClient?.condiciones_credito || "Sin condiciones registradas"}</strong>
-              </div>
-              <div>
-                <span className="quotes-summary-label">Vendedor</span>
-                <strong>{selectedSeller?.nombre || "Sin asignar"}</strong>
               </div>
             </div>
 
@@ -1013,10 +961,6 @@ async function withTimeout(promise, label) {
                     </div>
 
                     <p className="quote-card-notes">
-                      Vendedor: {cotizacion.vendedor_nombre || "Sin asignar"} | Vigencia:{" "}
-                      {cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias
-                    </p>
-                    <p className="quote-card-notes">
                       Moneda: {cotizacion.currency_code || "MXN"} | Credito:{" "}
                       {cotizacion.cliente_condiciones_credito || "Sin condiciones registradas."}
                     </p>
@@ -1039,70 +983,6 @@ async function withTimeout(promise, label) {
       </div>
     </div>
   );
-}
-
-async function loadOptionalVendedores(tenantId) {
-  const response = await withTimeout(
-    supabase
-      .from("vendedores")
-      .select("id, nombre, email, telefono, comision, activo")
-      .eq("tenant_id", tenantId)
-      .eq("activo", true)
-      .order("nombre", { ascending: true }),
-    "consultar vendedores"
-  );
-
-  if (response.error) {
-    return {
-      data: [],
-      warning: isMissingSchemaError(response.error)
-        ? "El modulo de vendedores aun no esta configurado en Supabase."
-        : response.error.message || "No se pudieron cargar los vendedores.",
-    };
-  }
-
-  return {
-    data: response.data || [],
-    warning: "",
-  };
-}
-
-async function loadCotizacionesWithFallback(tenantId) {
-  const fullResponse = await withTimeout(
-    supabase.from("cotizaciones").select(QUOTE_SELECT_FULL).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
-    "consultar cotizaciones"
-  );
-
-  if (!fullResponse.error) {
-    return {
-      data: fullResponse.data || [],
-      warning: "",
-    };
-  }
-
-  const legacyResponse = await withTimeout(
-    supabase.from("cotizaciones").select(QUOTE_SELECT_LEGACY).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
-    "consultar cotizaciones"
-  );
-
-  if (legacyResponse.error) {
-    return {
-      data: [],
-      warning: legacyResponse.error.message || fullResponse.error.message || "No se pudieron cargar las cotizaciones.",
-    };
-  }
-
-  return {
-    data: (legacyResponse.data || []).map((quote) => ({
-      ...quote,
-      vendedor_id: null,
-      vendedor_nombre: null,
-      vendedor_email: null,
-    })),
-    warning: isMissingSchemaError(fullResponse.error)
-      ? "Corre el SQL de vendedores en Supabase para habilitar la asignacion comercial."
-      : fullResponse.error.message || "",
-  };
 }
 
 function buildQuoteNumber(dateValue) {
@@ -1226,7 +1106,6 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
                 <div class="row"><div class="label">Vence</div><div class="value">${escapeHtml(validityDate)}</div></div>
                 <div class="row"><div class="label">IVA</div><div class="value">${escapeHtml(`${Number(cotizacion.iva_rate || 0)}%`)}</div></div>
                 <div class="row"><div class="label">Moneda</div><div class="value">${escapeHtml(cotizacion.currency_code || "MXN")}</div></div>
-                <div class="row"><div class="label">Vendedor</div><div class="value">${escapeHtml(cotizacion.vendedor_nombre || "Sin asignar")}</div></div>
                 <div class="row"><div class="label">Credito</div><div class="value">${escapeHtml(cotizacion.cliente_condiciones_credito || "Sin condiciones registradas.")}</div></div>
                 <div class="row"><div class="label">Notas</div><div class="value">${escapeHtml(cotizacion.notas || "Sin notas adicionales.")}</div></div>
               </div>
@@ -1413,15 +1292,4 @@ function drawLabeledValue(pdf, label, value, x, y) {
   pdf.setFontSize(10);
   pdf.setTextColor(71, 85, 105);
   pdf.text(String(value || "-"), x + 58, y);
-}
-
-function isMissingSchemaError(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return (
-    message.includes("does not exist") ||
-    message.includes("could not find") ||
-    message.includes("schema cache") ||
-    message.includes("vendedores") ||
-    message.includes("vendedor_")
-  );
 }
