@@ -53,6 +53,11 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
   const [errorMessage, setErrorMessage] = useState("");
   const [statusDetail, setStatusDetail] = useState("Preparando carga...");
 
+  const selectedClient = useMemo(
+    () => clientes.find((cliente) => cliente.id === form.clienteId) || null,
+    [clientes, form.clienteId]
+  );
+
   useEffect(() => {
     loadCotizacionesModule();
   }, [currentUser?.id, companyId]);
@@ -72,11 +77,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           }
     );
   }, [selectedClient]);
-
-  const selectedClient = useMemo(
-    () => clientes.find((cliente) => cliente.id === form.clienteId) || null,
-    [clientes, form.clienteId]
-  );
 
   const totals = useMemo(() => {
     const subtotal = form.items.reduce((accumulator, item) => {
