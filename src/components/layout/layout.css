@@ -1640,7 +1640,8 @@
 }
 .providers-layout,
 .inventory-layout,
-.vendors-layout {
+.vendors-layout,
+.support-layout {
   display: grid;
   gap: 18px;
 }
@@ -1651,20 +1652,24 @@
 .vendors-catalog-card,
 .inventory-form-card,
 .inventory-stock-card,
-.inventory-history-card {
+.inventory-history-card,
+.support-form-card,
+.support-list-card {
   width: 100%;
 }
 
 .providers-form,
 .inventory-form,
-.vendors-form {
+.vendors-form,
+.support-form {
   display: grid;
   gap: 18px;
 }
 
 .providers-form-grid,
 .inventory-form-grid,
-.vendors-form-grid {
+.vendors-form-grid,
+.support-form-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
@@ -1673,7 +1678,8 @@
 
 .providers-form-grid .form-group-full,
 .inventory-form-grid .form-group-full,
-.vendors-form-grid .form-group-full {
+.vendors-form-grid .form-group-full,
+.support-form-grid .form-group-full {
   grid-column: 1 / -1;
 }
 
@@ -1751,6 +1757,45 @@
   max-width: 220px;
 }
 
+.support-help-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.support-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.support-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 20px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.support-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.support-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .admin-hero-card {
   overflow: hidden;
 }
@@ -1780,7 +1825,9 @@
   .vendors-form-grid,
   .inventory-form-grid,
   .inventory-product-chip,
-  .admin-hero-grid {
+  .admin-hero-grid,
+  .support-form-grid,
+  .support-help-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1790,11 +1837,17 @@
   .vendors-form-grid,
   .inventory-form-grid,
   .inventory-product-chip,
-  .admin-hero-grid {
+  .admin-hero-grid,
+  .support-form-grid,
+  .support-help-strip {
     grid-template-columns: 1fr;
   }
 
   .inventory-number-field {
     max-width: none;
+  }
+
+  .support-card-head {
+    flex-direction: column;
   }
 }

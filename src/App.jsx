@@ -14,6 +14,7 @@ import VendedoresPage from "./pages/vendedores/VendedoresPage";
 import CotizacionesPage from "./pages/cotizaciones/CotizacionesPage";
 import PuntoVentaPage from "./pages/ventas/PuntoVentaPage";
 import ReportesPage from "./pages/reportes/ReportesPage";
+import SoportePage from "./pages/soporte/SoportePage";
 import ConfiguracionPage from "./pages/settings/ConfiguracionPage";
 import SuperAdminPage from "./pages/admin/SuperAdminPage";
 import LoginPage from "./pages/auth/LoginPage";
@@ -209,6 +210,16 @@ function App() {
               companyId={companyContext.companyId}
               company={companyContext.company}
               branding={companyContext.branding}
+            />
+          }
+        />
+        <Route
+          path="/soporte"
+          element={
+            <SoportePage
+              currentUser={session.user}
+              companyId={companyContext.companyId}
+              company={companyContext.company}
             />
           }
         />

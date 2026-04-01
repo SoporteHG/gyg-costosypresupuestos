@@ -8,6 +8,7 @@ import {
   FileText,
   ShoppingCart,
   BarChart3,
+  LifeBuoy,
   ShieldCheck,
   Settings,
 } from "lucide-react";
@@ -87,6 +88,11 @@ export default function Sidebar({ company, branding, isSuperAdmin }) {
         <NavLink to="/reportes" className="nav-link">
           <BarChart3 size={18} />
           Reportes
+        </NavLink>
+
+        <NavLink to="/soporte" className="nav-link">
+          <LifeBuoy size={18} />
+          Soporte
         </NavLink>
 
         {isSuperAdmin ? (
