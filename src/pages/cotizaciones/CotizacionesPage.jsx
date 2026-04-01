@@ -107,7 +107,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     };
   }, [form.items, form.ivaRate]);
 
-  async function withTimeout(promise, label) {
+async function withTimeout(promise, label) {
     let timeoutId;
 
     const timeoutPromise = new Promise((_, reject) => {
@@ -151,15 +151,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             .order("nombre", { ascending: true }),
           "consultar clientes"
         ),
-        withTimeout(
-          supabase
-            .from("vendedores")
-            .select("id, nombre, email, telefono, comision, activo")
-            .eq("tenant_id", tenantId)
-            .eq("activo", true)
-            .order("nombre", { ascending: true }),
-          "consultar vendedores"
-        ),
+        loadOptionalVendedores(tenantId),
         withTimeout(
           supabase
             .from("productos")
@@ -168,14 +160,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             .order("nombre", { ascending: true }),
           "consultar productos"
         ),
-        withTimeout(
-          supabase
-            .from("cotizaciones")
-            .select(QUOTE_SELECT_FULL)
-            .eq("tenant_id", tenantId)
-            .order("created_at", { ascending: false }),
-          "consultar cotizaciones"
-        ),
+        loadCotizacionesWithFallback(tenantId),
       ]);
 
       if (clientesResult.status === "rejected") throw clientesResult.reason;
@@ -190,60 +175,21 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       setClientes(clientesResponse.data || []);
       setProductos(productosResponse.data || []);
 
-      let vendedoresData = [];
-      let vendedoresWarning = "";
-
-      if (vendedoresResult.status === "fulfilled") {
-        if (vendedoresResult.value.error) {
-          vendedoresWarning = isMissingSchemaError(vendedoresResult.value.error)
-            ? "El modulo de vendedores aun no esta configurado en Supabase."
-            : vendedoresResult.value.error.message || "No se pudieron cargar los vendedores.";
-        } else {
-          vendedoresData = vendedoresResult.value.data || [];
-        }
-      } else {
-        vendedoresWarning = vendedoresResult.reason?.message || "No se pudieron cargar los vendedores.";
-      }
+      const vendedoresData =
+        vendedoresResult.status === "fulfilled" ? vendedoresResult.value.data || [] : [];
+      const vendedoresWarning =
+        vendedoresResult.status === "fulfilled"
+          ? vendedoresResult.value.warning || ""
+          : vendedoresResult.reason?.message || "No se pudieron cargar los vendedores.";
 
       setVendedores(vendedoresData);
 
-      let cotizacionesData = [];
-      let cotizacionesWarning = "";
-
-      if (cotizacionesResult.status === "fulfilled") {
-        if (cotizacionesResult.value.error) {
-          if (isMissingSchemaError(cotizacionesResult.value.error)) {
-            const legacyResponse = await withTimeout(
-              supabase
-                .from("cotizaciones")
-                .select(QUOTE_SELECT_LEGACY)
-                .eq("tenant_id", tenantId)
-                .order("created_at", { ascending: false }),
-              "consultar cotizaciones"
-            );
-
-            if (legacyResponse.error) {
-              cotizacionesWarning =
-                legacyResponse.error.message || "No se pudieron cargar las cotizaciones.";
-            } else {
-              cotizacionesData = (legacyResponse.data || []).map((quote) => ({
-                ...quote,
-                vendedor_id: null,
-                vendedor_nombre: null,
-                vendedor_email: null,
-              }));
-              cotizacionesWarning = vendedoresWarning;
-            }
-          } else {
-            cotizacionesWarning =
-              cotizacionesResult.value.error.message || "No se pudieron cargar las cotizaciones.";
-          }
-        } else {
-          cotizacionesData = cotizacionesResult.value.data || [];
-        }
-      } else {
-        cotizacionesWarning = cotizacionesResult.reason?.message || "No se pudieron cargar las cotizaciones.";
-      }
+      const cotizacionesData =
+        cotizacionesResult.status === "fulfilled" ? cotizacionesResult.value.data || [] : [];
+      const cotizacionesWarning =
+        cotizacionesResult.status === "fulfilled"
+          ? cotizacionesResult.value.warning || ""
+          : cotizacionesResult.reason?.message || "No se pudieron cargar las cotizaciones.";
 
       setCotizaciones(cotizacionesData);
       if (cotizacionesWarning || vendedoresWarning) {
@@ -1093,6 +1039,70 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       </div>
     </div>
   );
+}
+
+async function loadOptionalVendedores(tenantId) {
+  const response = await withTimeout(
+    supabase
+      .from("vendedores")
+      .select("id, nombre, email, telefono, comision, activo")
+      .eq("tenant_id", tenantId)
+      .eq("activo", true)
+      .order("nombre", { ascending: true }),
+    "consultar vendedores"
+  );
+
+  if (response.error) {
+    return {
+      data: [],
+      warning: isMissingSchemaError(response.error)
+        ? "El modulo de vendedores aun no esta configurado en Supabase."
+        : response.error.message || "No se pudieron cargar los vendedores.",
+    };
+  }
+
+  return {
+    data: response.data || [],
+    warning: "",
+  };
+}
+
+async function loadCotizacionesWithFallback(tenantId) {
+  const fullResponse = await withTimeout(
+    supabase.from("cotizaciones").select(QUOTE_SELECT_FULL).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
+    "consultar cotizaciones"
+  );
+
+  if (!fullResponse.error) {
+    return {
+      data: fullResponse.data || [],
+      warning: "",
+    };
+  }
+
+  const legacyResponse = await withTimeout(
+    supabase.from("cotizaciones").select(QUOTE_SELECT_LEGACY).eq("tenant_id", tenantId).order("created_at", { ascending: false }),
+    "consultar cotizaciones"
+  );
+
+  if (legacyResponse.error) {
+    return {
+      data: [],
+      warning: legacyResponse.error.message || fullResponse.error.message || "No se pudieron cargar las cotizaciones.",
+    };
+  }
+
+  return {
+    data: (legacyResponse.data || []).map((quote) => ({
+      ...quote,
+      vendedor_id: null,
+      vendedor_nombre: null,
+      vendedor_email: null,
+    })),
+    warning: isMissingSchemaError(fullResponse.error)
+      ? "Corre el SQL de vendedores en Supabase para habilitar la asignacion comercial."
+      : fullResponse.error.message || "",
+  };
 }
 
 function buildQuoteNumber(dateValue) {
