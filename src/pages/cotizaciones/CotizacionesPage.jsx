@@ -588,18 +588,15 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       });
 
       const tableY = pdf.lastAutoTable?.finalY || boxTop + 120;
-      const summaryWidth = 236;
-      const summaryX = pageWidth - marginX - summaryWidth;
+      const summaryWidth = 196;
+      const summaryX = pageWidth - marginX - summaryWidth + 18;
       const summaryY = tableY + 18;
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(226, 232, 240);
-      pdf.rect(summaryX, summaryY, summaryWidth, 96, "FD");
       drawSummaryRow(
         pdf,
         "Subtotal",
         formatCurrency(cotizacion.subtotal, cotizacion.currency_code),
         summaryX + 16,
-        summaryY + 24,
+        summaryY + 22,
         false
       );
       drawSummaryRow(
@@ -607,7 +604,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         `IVA ${Number(cotizacion.iva_rate || 0)}%`,
         formatCurrency(cotizacion.iva_amount, cotizacion.currency_code),
         summaryX + 16,
-        summaryY + 46,
+        summaryY + 42,
         false
       );
       drawSummaryRow(
@@ -615,7 +612,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         "Total",
         formatCurrency(cotizacion.total, cotizacion.currency_code),
         summaryX + 16,
-        summaryY + 74,
+        summaryY + 66,
         true
       );
 
@@ -623,9 +620,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setFontSize(9);
       pdf.setTextColor(71, 85, 105);
       const amountLines = pdf.splitTextToSize(`Importe en letra: ${amountInWords}`, contentWidth - 12);
-      pdf.text(amountLines, marginX, summaryY + 122);
+      pdf.text(amountLines, marginX, summaryY + 110);
 
-      const signatureY = summaryY + 170;
+      const signatureY = summaryY + 158;
       pdf.setDrawColor(203, 213, 225);
       pdf.line(marginX, signatureY, marginX + 180, signatureY);
       pdf.setFont("helvetica", "bold");
@@ -1081,12 +1078,13 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           th { background: ${brandColor}; color: #fff; font-size: 10px; }
           td { word-wrap: break-word; }
           td:nth-child(4), td:nth-child(5), td:nth-child(6), th:nth-child(4), th:nth-child(5), th:nth-child(6) { text-align: right; }
-          .totals { width: 280px; margin: 18px 0 0 auto; }
-          .totals-row { display: grid; grid-template-columns: 1fr auto; gap: 18px; padding: 6px 0; align-items: center; }
-          .totals-row span:first-child { color: #475569; font-size: 11px; }
-          .totals-row strong { min-width: 120px; text-align: right; display: inline-block; }
-          .totals-row.total { border-top: 1px solid #cbd5e1; margin-top: 4px; padding-top: 10px; font-size: 15px; font-weight: 800; }
-          .amount-words { margin-top: 10px; color: #475569; font-size: 10px; line-height: 1.4; }
+          .totals { width: 220px; margin: 18px -18px 0 auto; padding: 0; }
+          .totals-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding: 5px 0; align-items: center; }
+          .totals-row span:first-child { color: #64748b; font-size: 10px; }
+          .totals-row strong { min-width: 116px; text-align: right; display: inline-block; font-size: 10px; color: #334155; }
+          .totals-row.total { border-top: 1px solid #cbd5e1; margin-top: 6px; padding-top: 9px; font-size: 14px; font-weight: 800; }
+          .totals-row.total strong { font-size: 14px; color: #0f172a; }
+          .amount-words { margin-top: 8px; color: #64748b; font-size: 9px; line-height: 1.35; }
           .signature { margin-top: 44px; width: 220px; border-top: 1px solid #94a3b8; padding-top: 8px; }
           .footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 9px; display: flex; justify-content: space-between; gap: 18px; }
           .footer-copy { max-width: 70%; }
@@ -1191,10 +1189,10 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
 
 function drawSummaryRow(pdf, label, value, x, y, emphasize) {
   pdf.setFont("helvetica", emphasize ? "bold" : "normal");
-  pdf.setFontSize(emphasize ? 14 : 11);
+  pdf.setFontSize(emphasize ? 12.5 : 10);
   pdf.setTextColor(emphasize ? 15 : 100, emphasize ? 23 : 116, emphasize ? 42 : 139);
   pdf.text(label, x, y);
-  pdf.text(value, x + 168, y, { align: "right" });
+  pdf.text(value, x + 158, y, { align: "right" });
 }
 
 function numberToSpanishWords(value, currencyCode = "MXN") {
