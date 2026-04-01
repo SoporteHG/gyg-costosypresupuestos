@@ -18,6 +18,8 @@ const initialForm = {
   email: "",
   condiciones_credito: "",
   centro_costos: "MXN",
+  tiene_vendedor: false,
+  vendedor_nombre: "",
 };
 
 const REQUEST_TIMEOUT_MS = 10000;
@@ -31,6 +33,8 @@ const CLIENT_TEMPLATE = [
     Correo: "cliente@demo.com",
     "Condiciones de credito": "Credito a 15 dias",
     "Centro de costos": "MXN",
+    "Tiene vendedor": "No",
+    "Nombre del vendedor": "",
   },
 ];
 
@@ -43,6 +47,8 @@ const CLIENT_HEADER_MAP = {
   email: ["Correo", "Email"],
   condiciones_credito: ["Condiciones de credito", "Credito", "Condiciones"],
   centro_costos: ["Centro de costos", "Moneda", "Centro costos"],
+  tiene_vendedor: ["Tiene vendedor", "Vendedor"],
+  vendedor_nombre: ["Nombre del vendedor", "Vendedor asignado", "Nombre vendedor"],
 };
 
 export default function ClientesManagerPage({ currentUser, companyId }) {
@@ -100,7 +106,7 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
         supabase
           .from("clientes")
           .select(
-            "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos"
+            "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos, tiene_vendedor, vendedor_nombre"
           )
           .eq("tenant_id", currentCompanyId)
           .order("nombre", { ascending: true }),
@@ -121,10 +127,11 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
   }
 
   function handleChange(event) {
-    const { name, value } = event.target;
+    const { name, value, type, checked } = event.target;
     setForm((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
+      ...(name === "tiene_vendedor" && !checked ? { vendedor_nombre: "" } : {}),
     }));
   }
 
@@ -139,6 +146,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
       email: cliente.email || "",
       condiciones_credito: cliente.condiciones_credito || "",
       centro_costos: cliente.centro_costos || "MXN",
+      tiene_vendedor: cliente.tiene_vendedor === true,
+      vendedor_nombre: cliente.vendedor_nombre || "",
     });
     setMessage("");
     setErrorMessage("");
@@ -170,6 +179,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
         email: form.email.trim() || null,
         condiciones_credito: form.condiciones_credito.trim() || null,
         centro_costos: form.centro_costos === "USD" ? "USD" : "MXN",
+        tiene_vendedor: Boolean(form.tiene_vendedor),
+        vendedor_nombre: form.tiene_vendedor ? form.vendedor_nombre.trim() || null : null,
         tenant_id: tenantId,
       };
 
@@ -187,7 +198,7 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
             .update(payload)
             .eq("id", form.id)
             .select(
-              "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos"
+              "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos, tiene_vendedor, vendedor_nombre"
             )
             .single(),
           "actualizar cliente"
@@ -201,7 +212,7 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
             .from("clientes")
             .insert(payload)
             .select(
-              "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos"
+              "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos, tiene_vendedor, vendedor_nombre"
             )
             .single(),
           "crear cliente"
@@ -297,6 +308,10 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
           email: normalizeText(row.email),
           condiciones_credito: normalizeText(row.condiciones_credito),
           centro_costos: normalizeText(row.centro_costos).toUpperCase() || "MXN",
+          tiene_vendedor: ["si", "sí", "true", "1", "x"].includes(
+            normalizeText(row.tiene_vendedor).toLowerCase()
+          ),
+          vendedor_nombre: normalizeText(row.vendedor_nombre),
         }))
         .filter((row) => row.nombre);
 
@@ -332,6 +347,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
           email: row.email || null,
           condiciones_credito: row.condiciones_credito || null,
           centro_costos: row.centro_costos === "USD" ? "USD" : "MXN",
+          tiene_vendedor: Boolean(row.tiene_vendedor),
+          vendedor_nombre: row.tiene_vendedor ? row.vendedor_nombre || null : null,
         };
 
         const existingId = existingMap.get(
@@ -464,6 +481,30 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
                 </select>
               </div>
 
+              <div className="form-group">
+                <label className="vendors-toggle-label">
+                  <input
+                    name="tiene_vendedor"
+                    type="checkbox"
+                    checked={form.tiene_vendedor}
+                    onChange={handleChange}
+                  />
+                  <span>Cliente con vendedor asignado</span>
+                </label>
+              </div>
+
+              {form.tiene_vendedor ? (
+                <div className="form-group">
+                  <label>Nombre del vendedor</label>
+                  <input
+                    name="vendedor_nombre"
+                    value={form.vendedor_nombre}
+                    onChange={handleChange}
+                    placeholder="Nombre del vendedor"
+                  />
+                </div>
+              ) : null}
+
               <div className="form-group form-group-full">
                 <label>Condiciones de credito</label>
                 <textarea
@@ -552,6 +593,7 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
                     <th>RFC</th>
                     <th>Telefono</th>
                     <th>Moneda</th>
+                    <th>Vendedor</th>
                     <th>Credito</th>
                     <th>Direccion</th>
                     <th>Email</th>
@@ -566,6 +608,7 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
                       <td>{cliente.rfc || "-"}</td>
                       <td>{cliente.telefono || "-"}</td>
                       <td>{cliente.centro_costos || "MXN"}</td>
+                      <td>{cliente.tiene_vendedor ? cliente.vendedor_nombre || "Asignado" : "-"}</td>
                       <td className="clients-address-cell">{cliente.condiciones_credito || "-"}</td>
                       <td className="clients-address-cell">{cliente.direccion || "-"}</td>
                       <td>{cliente.email || "-"}</td>

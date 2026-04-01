@@ -135,7 +135,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         withTimeout(
           supabase
             .from("clientes")
-            .select("id, nombre, empresa, rfc, email, telefono, direccion, condiciones_credito, centro_costos")
+            .select("id, nombre, empresa, rfc, email, telefono, direccion, condiciones_credito, centro_costos, tiene_vendedor, vendedor_nombre")
             .eq("tenant_id", tenantId)
             .order("nombre", { ascending: true }),
           "consultar clientes"
@@ -326,6 +326,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         cliente_direccion: selectedClient?.direccion || null,
         cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
         cliente_centro_costos: selectedClient?.centro_costos || "MXN",
+        vendedor_nombre: selectedClient?.tiene_vendedor ? selectedClient?.vendedor_nombre || null : null,
         currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
         estado: form.estado,
         vigencia_dias: Number(form.vigenciaDias || 0),
@@ -343,7 +344,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           .from("cotizaciones")
           .insert(payload)
           .select(
-            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
           )
           .single(),
         "crear cotizacion"
@@ -408,6 +409,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       cliente_direccion: selectedClient?.direccion || null,
       cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
       cliente_centro_costos: selectedClient?.centro_costos || form.currencyCode,
+      vendedor_nombre: selectedClient?.tiene_vendedor ? selectedClient?.vendedor_nombre || null : null,
       currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
       estado: form.estado,
       vigencia_dias: Number(form.vigenciaDias || 0),
@@ -537,14 +539,15 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       );
       drawLabeledValue(pdf, "Vence", expiryDate, conditionsX, 272);
       drawLabeledValue(pdf, "IVA", `${Number(cotizacion.iva_rate || 0)}%`, conditionsX, 292);
+      drawLabeledValue(pdf, "Vendedor", cotizacion.vendedor_nombre || "Sin vendedor", conditionsX, 312);
 
       pdf.setFont("helvetica", "bold");
       pdf.setTextColor(15, 23, 42);
-      pdf.text("Notas", conditionsX, 312);
+      pdf.text("Notas", conditionsX, 332);
       pdf.setFont("helvetica", "normal");
       pdf.setTextColor(71, 85, 105);
       pdf.setFontSize(10);
-      pdf.text(notesValue, conditionsX + 46, 312);
+      pdf.text(notesValue, conditionsX + 46, 332);
 
       autoTable(pdf, {
         startY: 340,
@@ -763,6 +766,14 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                 <span className="quotes-summary-label">Condiciones de credito</span>
                 <strong>{selectedClient?.condiciones_credito || "Sin condiciones registradas"}</strong>
               </div>
+              <div>
+                <span className="quotes-summary-label">Vendedor</span>
+                <strong>
+                  {selectedClient?.tiene_vendedor
+                    ? selectedClient?.vendedor_nombre || "Asignado"
+                    : "Sin vendedor"}
+                </strong>
+              </div>
             </div>
 
             <div className="quotes-items-block">
@@ -961,6 +972,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                     </div>
 
                     <p className="quote-card-notes">
+                      Vendedor: {cotizacion.vendedor_nombre || "Sin vendedor"}
+                    </p>
+                    <p className="quote-card-notes">
                       Moneda: {cotizacion.currency_code || "MXN"} | Credito:{" "}
                       {cotizacion.cliente_condiciones_credito || "Sin condiciones registradas."}
                     </p>
@@ -1105,6 +1119,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
                 <div class="row"><div class="label">Vigencia</div><div class="value">${escapeHtml(`${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias`)}</div></div>
                 <div class="row"><div class="label">Vence</div><div class="value">${escapeHtml(validityDate)}</div></div>
                 <div class="row"><div class="label">IVA</div><div class="value">${escapeHtml(`${Number(cotizacion.iva_rate || 0)}%`)}</div></div>
+                <div class="row"><div class="label">Vendedor</div><div class="value">${escapeHtml(cotizacion.vendedor_nombre || "Sin vendedor")}</div></div>
                 <div class="row"><div class="label">Moneda</div><div class="value">${escapeHtml(cotizacion.currency_code || "MXN")}</div></div>
                 <div class="row"><div class="label">Credito</div><div class="value">${escapeHtml(cotizacion.cliente_condiciones_credito || "Sin condiciones registradas.")}</div></div>
                 <div class="row"><div class="label">Notas</div><div class="value">${escapeHtml(cotizacion.notas || "Sin notas adicionales.")}</div></div>
