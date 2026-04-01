@@ -6,6 +6,10 @@ import autoTable from "jspdf-autotable";
 const REQUEST_TIMEOUT_MS = 10000;
 const DEFAULT_IVA_RATE = 16;
 const DEFAULT_VALIDITY_DAYS = 15;
+const QUOTE_SELECT_FULL =
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_email, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
+const QUOTE_SELECT_LEGACY =
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
 
 const initialItem = {
   id: crypto.randomUUID(),
@@ -167,9 +171,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         withTimeout(
           supabase
             .from("cotizaciones")
-            .select(
-              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_email, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
-            )
+            .select(QUOTE_SELECT_FULL)
             .eq("tenant_id", tenantId)
             .order("created_at", { ascending: false }),
           "consultar cotizaciones"
@@ -177,27 +179,65 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       ]);
 
       if (clientesResult.status === "rejected") throw clientesResult.reason;
-      if (vendedoresResult.status === "rejected") throw vendedoresResult.reason;
       if (productosResult.status === "rejected") throw productosResult.reason;
 
       const clientesResponse = clientesResult.value;
-      const vendedoresResponse = vendedoresResult.value;
       const productosResponse = productosResult.value;
 
       if (clientesResponse.error) throw clientesResponse.error;
-      if (vendedoresResponse.error) throw vendedoresResponse.error;
       if (productosResponse.error) throw productosResponse.error;
 
       setClientes(clientesResponse.data || []);
-      setVendedores(vendedoresResponse.data || []);
       setProductos(productosResponse.data || []);
+
+      let vendedoresData = [];
+      let vendedoresWarning = "";
+
+      if (vendedoresResult.status === "fulfilled") {
+        if (vendedoresResult.value.error) {
+          vendedoresWarning = isMissingSchemaError(vendedoresResult.value.error)
+            ? "El modulo de vendedores aun no esta configurado en Supabase."
+            : vendedoresResult.value.error.message || "No se pudieron cargar los vendedores.";
+        } else {
+          vendedoresData = vendedoresResult.value.data || [];
+        }
+      } else {
+        vendedoresWarning = vendedoresResult.reason?.message || "No se pudieron cargar los vendedores.";
+      }
+
+      setVendedores(vendedoresData);
 
       let cotizacionesData = [];
       let cotizacionesWarning = "";
 
       if (cotizacionesResult.status === "fulfilled") {
         if (cotizacionesResult.value.error) {
-          cotizacionesWarning = cotizacionesResult.value.error.message || "No se pudieron cargar las cotizaciones.";
+          if (isMissingSchemaError(cotizacionesResult.value.error)) {
+            const legacyResponse = await withTimeout(
+              supabase
+                .from("cotizaciones")
+                .select(QUOTE_SELECT_LEGACY)
+                .eq("tenant_id", tenantId)
+                .order("created_at", { ascending: false }),
+              "consultar cotizaciones"
+            );
+
+            if (legacyResponse.error) {
+              cotizacionesWarning =
+                legacyResponse.error.message || "No se pudieron cargar las cotizaciones.";
+            } else {
+              cotizacionesData = (legacyResponse.data || []).map((quote) => ({
+                ...quote,
+                vendedor_id: null,
+                vendedor_nombre: null,
+                vendedor_email: null,
+              }));
+              cotizacionesWarning = vendedoresWarning;
+            }
+          } else {
+            cotizacionesWarning =
+              cotizacionesResult.value.error.message || "No se pudieron cargar las cotizaciones.";
+          }
         } else {
           cotizacionesData = cotizacionesResult.value.data || [];
         }
@@ -206,12 +246,12 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       }
 
       setCotizaciones(cotizacionesData);
-      if (cotizacionesWarning) {
-        setErrorMessage(cotizacionesWarning);
+      if (cotizacionesWarning || vendedoresWarning) {
+        setErrorMessage(cotizacionesWarning || vendedoresWarning);
       }
 
       setStatusDetail(
-        `Carga completa: ${cotizacionesData.length || 0} cotizacion(es), ${clientesResponse.data?.length || 0} cliente(s), ${vendedoresResponse.data?.length || 0} vendedor(es), ${productosResponse.data?.length || 0} producto(s).`
+        `Carga completa: ${cotizacionesData.length || 0} cotizacion(es), ${clientesResponse.data?.length || 0} cliente(s), ${vendedoresData.length || 0} vendedor(es), ${productosResponse.data?.length || 0} producto(s).`
       );
     } catch (error) {
       console.error(error);
@@ -361,16 +401,36 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         created_at: createdAt,
       };
 
-      const { data, error } = await withTimeout(
-        supabase
-          .from("cotizaciones")
-          .insert(payload)
-          .select(
-            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_email, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
-          )
-          .single(),
+      let response = await withTimeout(
+        supabase.from("cotizaciones").insert(payload).select(QUOTE_SELECT_FULL).single(),
         "crear cotizacion"
       );
+
+      if (response.error && isMissingSchemaError(response.error)) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.vendedor_id;
+        delete legacyPayload.vendedor_nombre;
+        delete legacyPayload.vendedor_email;
+
+        response = await withTimeout(
+          supabase.from("cotizaciones").insert(legacyPayload).select(QUOTE_SELECT_LEGACY).single(),
+          "crear cotizacion"
+        );
+
+        if (!response.error && response.data) {
+          response = {
+            ...response,
+            data: {
+              ...response.data,
+              vendedor_id: null,
+              vendedor_nombre: null,
+              vendedor_email: null,
+            },
+          };
+        }
+      }
+
+      const { data, error } = response;
 
       if (error) throw error;
 
@@ -1343,4 +1403,15 @@ function drawLabeledValue(pdf, label, value, x, y) {
   pdf.setFontSize(10);
   pdf.setTextColor(71, 85, 105);
   pdf.text(String(value || "-"), x + 58, y);
+}
+
+function isMissingSchemaError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("does not exist") ||
+    message.includes("could not find") ||
+    message.includes("schema cache") ||
+    message.includes("vendedores") ||
+    message.includes("vendedor_")
+  );
 }
