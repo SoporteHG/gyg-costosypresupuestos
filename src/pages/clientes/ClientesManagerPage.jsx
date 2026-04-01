@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import {
   downloadExcelTemplate,
@@ -16,6 +16,8 @@ const initialForm = {
   telefono: "",
   direccion: "",
   email: "",
+  condiciones_credito: "",
+  centro_costos: "MXN",
 };
 
 const REQUEST_TIMEOUT_MS = 10000;
@@ -27,6 +29,8 @@ const CLIENT_TEMPLATE = [
     Telefono: "5550000000",
     Direccion: "Calle Ejemplo 123",
     Correo: "cliente@demo.com",
+    "Condiciones de credito": "Credito a 15 dias",
+    "Centro de costos": "MXN",
   },
 ];
 
@@ -34,9 +38,11 @@ const CLIENT_HEADER_MAP = {
   nombre: ["Nombre", "Cliente"],
   empresa: ["Empresa"],
   rfc: ["RFC"],
-  telefono: ["Telefono", "Teléfono"],
-  direccion: ["Direccion", "Dirección"],
+  telefono: ["Telefono", "Telefono de contacto"],
+  direccion: ["Direccion", "Domicilio"],
   email: ["Correo", "Email"],
+  condiciones_credito: ["Condiciones de credito", "Credito", "Condiciones"],
+  centro_costos: ["Centro de costos", "Moneda", "Centro costos"],
 };
 
 export default function ClientesManagerPage({ currentUser, companyId }) {
@@ -93,7 +99,9 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
       const { data, error } = await withTimeout(
         supabase
           .from("clientes")
-          .select("id, tenant_id, nombre, empresa, rfc, telefono, direccion, email")
+          .select(
+            "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos"
+          )
           .eq("tenant_id", currentCompanyId)
           .order("nombre", { ascending: true }),
         "consultar clientes"
@@ -129,6 +137,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
       telefono: cliente.telefono || "",
       direccion: cliente.direccion || "",
       email: cliente.email || "",
+      condiciones_credito: cliente.condiciones_credito || "",
+      centro_costos: cliente.centro_costos || "MXN",
     });
     setMessage("");
     setErrorMessage("");
@@ -158,6 +168,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
         telefono: form.telefono.trim() || null,
         direccion: form.direccion.trim() || null,
         email: form.email.trim() || null,
+        condiciones_credito: form.condiciones_credito.trim() || null,
+        centro_costos: form.centro_costos === "USD" ? "USD" : "MXN",
         tenant_id: tenantId,
       };
 
@@ -174,7 +186,9 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
             .from("clientes")
             .update(payload)
             .eq("id", form.id)
-            .select("id, tenant_id, nombre, empresa, rfc, telefono, direccion, email")
+            .select(
+              "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos"
+            )
             .single(),
           "actualizar cliente"
         );
@@ -186,7 +200,9 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
           supabase
             .from("clientes")
             .insert(payload)
-            .select("id, tenant_id, nombre, empresa, rfc, telefono, direccion, email")
+            .select(
+              "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos"
+            )
             .single(),
           "crear cliente"
         );
@@ -279,6 +295,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
           telefono: normalizeText(row.telefono),
           direccion: normalizeText(row.direccion),
           email: normalizeText(row.email),
+          condiciones_credito: normalizeText(row.condiciones_credito),
+          centro_costos: normalizeText(row.centro_costos).toUpperCase() || "MXN",
         }))
         .filter((row) => row.nombre);
 
@@ -287,10 +305,7 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
       }
 
       const { data: existingRows, error: existingError } = await withTimeout(
-        supabase
-          .from("clientes")
-          .select("id, nombre, empresa, email")
-          .eq("tenant_id", tenantId),
+        supabase.from("clientes").select("id, nombre, empresa, email").eq("tenant_id", tenantId),
         "consultar clientes existentes"
       );
 
@@ -315,6 +330,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
           telefono: row.telefono || null,
           direccion: row.direccion || null,
           email: row.email || null,
+          condiciones_credito: row.condiciones_credito || null,
+          centro_costos: row.centro_costos === "USD" ? "USD" : "MXN",
         };
 
         const existingId = existingMap.get(
@@ -434,6 +451,30 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
                 />
               </div>
 
+              <div className="form-group">
+                <label>Centro de costos / moneda</label>
+                <select
+                  name="centro_costos"
+                  value={form.centro_costos}
+                  onChange={handleChange}
+                  className="quotes-select"
+                >
+                  <option value="MXN">MXN</option>
+                  <option value="USD">USD</option>
+                </select>
+              </div>
+
+              <div className="form-group form-group-full">
+                <label>Condiciones de credito</label>
+                <textarea
+                  name="condiciones_credito"
+                  value={form.condiciones_credito}
+                  onChange={handleChange}
+                  rows="3"
+                  placeholder="Credito a 15 dias, pago contra entrega, limite de credito..."
+                />
+              </div>
+
               <div className="form-group form-group-full">
                 <label>Direccion</label>
                 <textarea
@@ -510,6 +551,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
                     <th>Empresa</th>
                     <th>RFC</th>
                     <th>Telefono</th>
+                    <th>Moneda</th>
+                    <th>Credito</th>
                     <th>Direccion</th>
                     <th>Email</th>
                     <th>Acciones</th>
@@ -522,6 +565,8 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
                       <td>{cliente.empresa || "-"}</td>
                       <td>{cliente.rfc || "-"}</td>
                       <td>{cliente.telefono || "-"}</td>
+                      <td>{cliente.centro_costos || "MXN"}</td>
+                      <td className="clients-address-cell">{cliente.condiciones_credito || "-"}</td>
                       <td className="clients-address-cell">{cliente.direccion || "-"}</td>
                       <td>{cliente.email || "-"}</td>
                       <td>

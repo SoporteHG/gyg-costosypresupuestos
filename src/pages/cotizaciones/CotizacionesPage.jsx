@@ -22,6 +22,7 @@ const initialForm = {
   estado: "pendiente",
   vigenciaDias: String(DEFAULT_VALIDITY_DAYS),
   ivaRate: String(DEFAULT_IVA_RATE),
+  currencyCode: "MXN",
   notas: "",
   items: [initialItem],
 };
@@ -55,6 +56,22 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
   useEffect(() => {
     loadCotizacionesModule();
   }, [currentUser?.id, companyId]);
+
+  useEffect(() => {
+    if (!selectedClient) {
+      return;
+    }
+
+    const nextCurrency = selectedClient.centro_costos === "USD" ? "USD" : "MXN";
+    setForm((previous) =>
+      previous.currencyCode === nextCurrency
+        ? previous
+        : {
+            ...previous,
+            currencyCode: nextCurrency,
+          }
+    );
+  }, [selectedClient]);
 
   const selectedClient = useMemo(
     () => clientes.find((cliente) => cliente.id === form.clienteId) || null,
@@ -118,7 +135,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         withTimeout(
           supabase
             .from("clientes")
-            .select("id, nombre, empresa, rfc, email, telefono, direccion")
+            .select("id, nombre, empresa, rfc, email, telefono, direccion, condiciones_credito, centro_costos")
             .eq("tenant_id", tenantId)
             .order("nombre", { ascending: true }),
           "consultar clientes"
@@ -135,7 +152,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           supabase
             .from("cotizaciones")
             .select(
-              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
             )
             .eq("tenant_id", tenantId)
             .order("created_at", { ascending: false }),
@@ -307,6 +324,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         cliente_email: selectedClient?.email || null,
         cliente_telefono: selectedClient?.telefono || null,
         cliente_direccion: selectedClient?.direccion || null,
+        cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
+        cliente_centro_costos: selectedClient?.centro_costos || "MXN",
+        currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
         estado: form.estado,
         vigencia_dias: Number(form.vigenciaDias || 0),
         iva_rate: totals.ivaRate,
@@ -323,7 +343,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           .from("cotizaciones")
           .insert(payload)
           .select(
-            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
           )
           .single(),
         "crear cotizacion"
@@ -386,6 +406,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       cliente_email: selectedClient?.email || null,
       cliente_telefono: selectedClient?.telefono || null,
       cliente_direccion: selectedClient?.direccion || null,
+      cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
+      cliente_centro_costos: selectedClient?.centro_costos || form.currencyCode,
+      currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
       estado: form.estado,
       vigencia_dias: Number(form.vigenciaDias || 0),
       iva_rate: totals.ivaRate,
@@ -427,7 +450,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const conditionsX = panelX + 286;
       const clientAddressLines = pdf.splitTextToSize(cotizacion.cliente_direccion || "Sin direccion registrada", 188);
       const notesValue = truncateSingleLine(cotizacion.notas || "Sin notas adicionales.", 34);
-      const amountInWords = numberToSpanishWords(cotizacion.total);
+      const amountInWords = numberToSpanishWords(cotizacion.total, cotizacion.currency_code);
 
       pdf.setFillColor(246, 248, 252);
       pdf.rect(0, 0, pageWidth, pageHeight, "F");
@@ -531,8 +554,8 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           item.nombre || "-",
           item.unidad || "-",
           String(item.cantidad || 0),
-          formatCurrency(item.precio),
-          formatCurrency(item.total),
+          formatCurrency(item.precio, cotizacion.currency_code),
+          formatCurrency(item.total, cotizacion.currency_code),
         ]),
         styles: {
           fontSize: 10,
@@ -566,16 +589,30 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setFillColor(255, 255, 255);
       pdf.setDrawColor(226, 232, 240);
       pdf.roundedRect(summaryX, summaryY, summaryWidth, 116, 18, 18, "FD");
-      drawSummaryRow(pdf, "Subtotal", formatCurrency(cotizacion.subtotal), summaryX + 18, summaryY + 28, false);
+      drawSummaryRow(
+        pdf,
+        "Subtotal",
+        formatCurrency(cotizacion.subtotal, cotizacion.currency_code),
+        summaryX + 18,
+        summaryY + 28,
+        false
+      );
       drawSummaryRow(
         pdf,
         `IVA ${Number(cotizacion.iva_rate || 0)}%`,
-        formatCurrency(cotizacion.iva_amount),
+        formatCurrency(cotizacion.iva_amount, cotizacion.currency_code),
         summaryX + 18,
         summaryY + 54,
         false
       );
-      drawSummaryRow(pdf, "Total", formatCurrency(cotizacion.total), summaryX + 18, summaryY + 86, true);
+      drawSummaryRow(
+        pdf,
+        "Total",
+        formatCurrency(cotizacion.total, cotizacion.currency_code),
+        summaryX + 18,
+        summaryY + 86,
+        true
+      );
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
@@ -690,12 +727,21 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                   onChange={(event) => updateFormField("ivaRate", event.target.value)}
                 />
               </div>
+
+              <div className="form-group quotes-number-field">
+                <label>Moneda</label>
+                <input value={form.currencyCode} readOnly />
+              </div>
             </div>
 
             <div className="quotes-client-summary quotes-client-summary-extended">
               <div>
                 <span className="quotes-summary-label">Empresa</span>
                 <strong>{selectedClient?.empresa || "Sin empresa"}</strong>
+              </div>
+              <div>
+                <span className="quotes-summary-label">Moneda</span>
+                <strong>{selectedClient?.centro_costos || form.currencyCode}</strong>
               </div>
               <div>
                 <span className="quotes-summary-label">Correo</span>
@@ -712,6 +758,10 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
               <div className="quotes-client-address">
                 <span className="quotes-summary-label">Direccion</span>
                 <strong>{selectedClient?.direccion || "Sin direccion"}</strong>
+              </div>
+              <div className="quotes-client-address">
+                <span className="quotes-summary-label">Condiciones de credito</span>
+                <strong>{selectedClient?.condiciones_credito || "Sin condiciones registradas"}</strong>
               </div>
             </div>
 
@@ -779,7 +829,12 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
 
                     <div className="quotes-item-total">
                       <span>Total</span>
-                      <strong>{formatCurrency(Number(item.cantidad || 0) * Number(item.precio || 0))}</strong>
+                      <strong>
+                        {formatCurrency(
+                          Number(item.cantidad || 0) * Number(item.precio || 0),
+                          form.currencyCode
+                        )}
+                      </strong>
                     </div>
 
                     <button
@@ -808,15 +863,15 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             <div className="quotes-summary-panel quotes-summary-panel-rich">
               <div>
                 <span className="quotes-summary-label">Subtotal</span>
-                <strong>{formatCurrency(totals.subtotal)}</strong>
+                <strong>{formatCurrency(totals.subtotal, form.currencyCode)}</strong>
               </div>
               <div>
                 <span className="quotes-summary-label">IVA ({totals.ivaRate}%)</span>
-                <strong>{formatCurrency(totals.ivaAmount)}</strong>
+                <strong>{formatCurrency(totals.ivaAmount, form.currencyCode)}</strong>
               </div>
               <div>
                 <span className="quotes-summary-label">Total fiscal</span>
-                <strong>{formatCurrency(totals.total)}</strong>
+                <strong>{formatCurrency(totals.total, form.currencyCode)}</strong>
               </div>
             </div>
 
@@ -886,18 +941,18 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                       </div>
                       <div>
                         <span className="quotes-summary-label">Total</span>
-                        <strong>{formatCurrency(cotizacion.total)}</strong>
+                        <strong>{formatCurrency(cotizacion.total, cotizacion.currency_code)}</strong>
                       </div>
                     </div>
 
                     <div className="quote-card-meta quote-card-meta-secondary">
                       <div>
                         <span className="quotes-summary-label">Subtotal</span>
-                        <strong>{formatCurrency(cotizacion.subtotal)}</strong>
+                        <strong>{formatCurrency(cotizacion.subtotal, cotizacion.currency_code)}</strong>
                       </div>
                       <div>
                         <span className="quotes-summary-label">IVA</span>
-                        <strong>{formatCurrency(cotizacion.iva_amount)}</strong>
+                        <strong>{formatCurrency(cotizacion.iva_amount, cotizacion.currency_code)}</strong>
                       </div>
                       <div>
                         <span className="quotes-summary-label">Conceptos</span>
@@ -905,6 +960,10 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                       </div>
                     </div>
 
+                    <p className="quote-card-notes">
+                      Moneda: {cotizacion.currency_code || "MXN"} | Credito:{" "}
+                      {cotizacion.cliente_condiciones_credito || "Sin condiciones registradas."}
+                    </p>
                     <p className="quote-card-notes">{cotizacion.notas || "Sin notas adicionales."}</p>
 
                     <div className="quote-card-actions">
@@ -951,7 +1010,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
   const companyFooter =
     branding?.pdf_footer || "Esta cotizacion fue generada desde el portal de costos y presupuestos.";
   const validityDate = formatDate(calculateValidityDate(cotizacion.created_at, cotizacion.vigencia_dias), false);
-  const amountInWords = numberToSpanishWords(cotizacion.total);
+  const amountInWords = numberToSpanishWords(cotizacion.total, cotizacion.currency_code);
   const itemsRows = (cotizacion.items || [])
     .map(
       (item) => `
@@ -960,8 +1019,8 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
             <td>${escapeHtml(item.nombre || "-")}</td>
             <td>${escapeHtml(item.unidad || "-")}</td>
             <td>${item.cantidad || 0}</td>
-            <td>${formatCurrency(item.precio)}</td>
-            <td>${formatCurrency(item.total)}</td>
+            <td>${formatCurrency(item.precio, cotizacion.currency_code)}</td>
+            <td>${formatCurrency(item.total, cotizacion.currency_code)}</td>
           </tr>
         `
     )
@@ -1046,6 +1105,8 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
                 <div class="row"><div class="label">Vigencia</div><div class="value">${escapeHtml(`${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias`)}</div></div>
                 <div class="row"><div class="label">Vence</div><div class="value">${escapeHtml(validityDate)}</div></div>
                 <div class="row"><div class="label">IVA</div><div class="value">${escapeHtml(`${Number(cotizacion.iva_rate || 0)}%`)}</div></div>
+                <div class="row"><div class="label">Moneda</div><div class="value">${escapeHtml(cotizacion.currency_code || "MXN")}</div></div>
+                <div class="row"><div class="label">Credito</div><div class="value">${escapeHtml(cotizacion.cliente_condiciones_credito || "Sin condiciones registradas.")}</div></div>
                 <div class="row"><div class="label">Notas</div><div class="value">${escapeHtml(cotizacion.notas || "Sin notas adicionales.")}</div></div>
               </div>
             </div>
@@ -1063,9 +1124,9 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               <tbody>${itemsRows}</tbody>
             </table>
             <div class="totals">
-              <div class="totals-row"><span>Subtotal</span><strong>${formatCurrency(cotizacion.subtotal)}</strong></div>
-              <div class="totals-row"><span>IVA ${Number(cotizacion.iva_rate || 0)}%</span><strong>${formatCurrency(cotizacion.iva_amount)}</strong></div>
-              <div class="totals-row"><span>Total</span><strong>${formatCurrency(cotizacion.total)}</strong></div>
+              <div class="totals-row"><span>Subtotal</span><strong>${formatCurrency(cotizacion.subtotal, cotizacion.currency_code)}</strong></div>
+              <div class="totals-row"><span>IVA ${Number(cotizacion.iva_rate || 0)}%</span><strong>${formatCurrency(cotizacion.iva_amount, cotizacion.currency_code)}</strong></div>
+              <div class="totals-row"><span>Total</span><strong>${formatCurrency(cotizacion.total, cotizacion.currency_code)}</strong></div>
               <div class="amount-words">Importe en letra: ${escapeHtml(amountInWords)}</div>
             </div>
             <div class="signature">
@@ -1091,15 +1152,15 @@ function drawSummaryRow(pdf, label, value, x, y, emphasize) {
   pdf.text(value, x + 168, y, { align: "right" });
 }
 
-function numberToSpanishWords(value) {
+function numberToSpanishWords(value, currencyCode = "MXN") {
   const amount = Number(value || 0);
   const safeAmount = Number.isFinite(amount) ? amount : 0;
   const integerPart = Math.floor(safeAmount);
   const cents = Math.round((safeAmount - integerPart) * 100);
   const centsText = String(cents).padStart(2, "0");
-  return `${convertNumberToWords(integerPart)} pesos ${centsText}/100 M.N.`.replace(/^./, (letter) =>
-    letter.toUpperCase()
-  );
+  const suffix =
+    currencyCode === "USD" ? `dolares ${centsText}/100 USD` : `pesos ${centsText}/100 M.N.`;
+  return `${convertNumberToWords(integerPart)} ${suffix}`.replace(/^./, (letter) => letter.toUpperCase());
 }
 
 function convertNumberToWords(value) {
@@ -1149,11 +1210,13 @@ function truncateSingleLine(value, maxLength) {
   return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
-function formatCurrency(value) {
+function formatCurrency(value, currencyCode = "MXN") {
   const amount = Number(value || 0);
-  return new Intl.NumberFormat("es-MX", {
+  const safeCurrency = currencyCode === "USD" ? "USD" : "MXN";
+  const locale = safeCurrency === "USD" ? "en-US" : "es-MX";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "MXN",
+    currency: safeCurrency,
   }).format(amount);
 }
 
