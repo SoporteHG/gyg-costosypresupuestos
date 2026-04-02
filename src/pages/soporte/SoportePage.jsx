@@ -36,12 +36,14 @@ const PRIORITY_META = {
 const STATUS_META = {
   abierto: { label: "Abierto", className: "status-chip status-chip-warning" },
   en_revision: { label: "En revision", className: "status-chip" },
+  esperando_usuario: { label: "Esperando usuario", className: "status-chip status-chip-danger" },
   resuelto: { label: "Resuelto", className: "status-chip status-chip-success" },
   cerrado: { label: "Cerrado", className: "status-chip" },
 };
 
 export default function SoportePage({ currentUser, companyId, company }) {
   const [tickets, setTickets] = useState([]);
+  const [ticketUpdates, setTicketUpdates] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,6 +54,14 @@ export default function SoportePage({ currentUser, companyId, company }) {
   useEffect(() => {
     loadTickets();
   }, [currentUser?.id, companyId]);
+
+  const updatesByTicket = ticketUpdates.reduce((accumulator, entry) => {
+    if (!accumulator[entry.ticket_id]) {
+      accumulator[entry.ticket_id] = [];
+    }
+    accumulator[entry.ticket_id].push(entry);
+    return accumulator;
+  }, {});
 
   async function withTimeout(promise, label) {
     let timeoutId;
@@ -90,22 +100,34 @@ export default function SoportePage({ currentUser, companyId, company }) {
 
       const { userId, tenantId } = requireContext();
 
-      const { data, error } = await withTimeout(
-        supabase
-          .from("support_tickets")
-          .select(
-            "id, tenant_id, user_id, user_email, ticket_number, subject, module_name, category, priority, description, repro_steps, status, created_at, updated_at"
-          )
-          .eq("tenant_id", tenantId)
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false }),
-        "consultar tickets de soporte"
-      );
+      const [ticketsResponse, updatesResponse] = await Promise.all([
+        withTimeout(
+          supabase
+            .from("support_tickets")
+            .select(
+              "id, tenant_id, user_id, user_email, ticket_number, subject, module_name, category, priority, description, repro_steps, status, created_at, updated_at, resolution_summary"
+            )
+            .eq("tenant_id", tenantId)
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false }),
+          "consultar tickets de soporte"
+        ),
+        withTimeout(
+          supabase
+            .from("support_ticket_updates")
+            .select("id, ticket_id, author_email, author_role, message, is_internal, created_at")
+            .order("created_at", { ascending: false })
+            .limit(100),
+          "consultar seguimiento de tickets"
+        ),
+      ]);
 
-      if (error) throw error;
+      if (ticketsResponse.error) throw ticketsResponse.error;
+      if (updatesResponse.error) throw updatesResponse.error;
 
-      setTickets(data || []);
-      setStatusDetail(`Carga completa: ${data?.length || 0} ticket(s).`);
+      setTickets(ticketsResponse.data || []);
+      setTicketUpdates((updatesResponse.data || []).filter((entry) => !entry.is_internal));
+      setStatusDetail(`Carga completa: ${ticketsResponse.data?.length || 0} ticket(s).`);
     } catch (error) {
       console.error(error);
       setErrorMessage(error.message || "No se pudieron cargar los tickets de soporte.");
@@ -163,7 +185,7 @@ export default function SoportePage({ currentUser, companyId, company }) {
           .from("support_tickets")
           .insert(payload)
           .select(
-            "id, tenant_id, user_id, user_email, ticket_number, subject, module_name, category, priority, description, repro_steps, status, created_at, updated_at"
+            "id, tenant_id, user_id, user_email, ticket_number, subject, module_name, category, priority, description, repro_steps, status, created_at, updated_at, resolution_summary"
           )
           .single(),
         "crear ticket de soporte"
@@ -353,9 +375,25 @@ export default function SoportePage({ currentUser, companyId, company }) {
                     </div>
 
                     <p className="quote-card-notes">{ticket.description}</p>
+                    {ticket.resolution_summary ? (
+                      <p className="quote-card-notes">Resolucion: {ticket.resolution_summary}</p>
+                    ) : null}
                     <p className="quote-card-notes">
                       Pasos: {ticket.repro_steps || "Sin pasos adicionales."}
                     </p>
+                    {(updatesByTicket[ticket.id] || []).length > 0 ? (
+                      <div className="admin-ticket-updates">
+                        {(updatesByTicket[ticket.id] || []).slice(0, 4).map((entry) => (
+                          <article key={entry.id} className="admin-ticket-update">
+                            <div className="admin-ticket-update-head">
+                              <strong>{entry.author_email || entry.author_role || "Soporte"}</strong>
+                              <span>{formatDate(entry.created_at)}</span>
+                            </div>
+                            <p>{entry.message}</p>
+                          </article>
+                        ))}
+                      </div>
+                    ) : null}
                   </article>
                 );
               })}
