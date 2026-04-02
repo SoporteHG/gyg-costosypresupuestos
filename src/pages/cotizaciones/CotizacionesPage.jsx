@@ -458,8 +458,8 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const logoBox = {
         x: marginX,
         y: topY,
-        width: 124,
-        height: 70,
+        width: 156,
+        height: 82,
       };
 
       if (brandLogo) {
@@ -489,14 +489,14 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setTextColor(15, 23, 42);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(17);
-      pdf.text(brandName, marginX + 138, topY + 20);
+      pdf.text(brandName, marginX + 164, topY + 20);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8.5);
       pdf.setTextColor(71, 85, 105);
-      pdf.text(companyEmail || "Sin correo", marginX + 138, topY + 38);
-      pdf.text(companyPhone || "Sin telefono", marginX + 138, topY + 52);
+      pdf.text(companyEmail || "Sin correo", marginX + 164, topY + 38);
+      pdf.text(companyPhone || "Sin telefono", marginX + 164, topY + 52);
       if (companyRfc) {
-        pdf.text(`RFC ${companyRfc}`, marginX + 138, topY + 66);
+        pdf.text(`RFC ${companyRfc}`, marginX + 164, topY + 66);
       }
 
       const folioBoxWidth = 160;
