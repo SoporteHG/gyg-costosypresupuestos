@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./layout.css";
 import { supabase } from "../../lib/supabase";
 
@@ -20,7 +20,29 @@ function clearStoredSupabaseSession() {
 export default function Topbar({ userEmail, onLoggedOut, company, branding, themeMode, onToggleTheme }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const [now, setNow] = useState(() => new Date());
   const companyName = branding?.business_name || company?.name || "Tu empresa";
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const formattedDate = new Intl.DateTimeFormat("es-MX", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(now);
+
+  const formattedTime = new Intl.DateTimeFormat("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(now);
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -63,6 +85,10 @@ export default function Topbar({ userEmail, onLoggedOut, company, branding, them
           <span className="theme-switch-label">{themeMode === "dark" ? "Dark" : "Light"}</span>
         </button>
         <div className="user">{userEmail || "Usuario"}</div>
+        <div className="topbar-clock" aria-label={`Fecha ${formattedDate} y hora ${formattedTime}`}>
+          <span className="topbar-clock-date">{formattedDate}</span>
+          <strong className="topbar-clock-time">{formattedTime}</strong>
+        </div>
         <button
           onClick={handleLogout}
           className="primary-btn"
