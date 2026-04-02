@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Lock, LockOpen } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
 const REQUEST_TIMEOUT_MS = 8000;
 
 export default function SuperAdminPage({ currentUser, adminContext }) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("Preparando panel administrativo...");
@@ -274,18 +276,6 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
     }
   }
 
-  function scrollToSection(sectionId) {
-    const element = document.getElementById(sectionId);
-    if (!element) {
-      return;
-    }
-
-    element.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
-
   function updateTicketForm(ticketId, field, value) {
     setTicketForms((currentValue) => ({
       ...currentValue,
@@ -450,7 +440,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         <button
           type="button"
           className="stat-card stat-card-button warning"
-          onClick={() => scrollToSection("admin-tickets-section")}
+          onClick={() => navigate("/mesa-tickets")}
         >
           <div className="label">Tickets abiertos</div>
           <div className="value">{metrics.openTickets}</div>
@@ -458,7 +448,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         <button
           type="button"
           className="stat-card stat-card-button danger"
-          onClick={() => scrollToSection("admin-tickets-section")}
+          onClick={() => navigate("/mesa-tickets")}
         >
           <div className="label">Tickets urgentes</div>
           <div className="value">{metrics.criticalTickets}</div>
@@ -535,7 +525,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         </section>
 
         <aside className="dashboard-side-stack">
-          <section className="module-card" id="admin-tickets-section">
+          <section className="module-card">
             <div className="section-head dashboard-side-head">
               <div>
                 <h2 className="section-title">Conectados ahora</h2>

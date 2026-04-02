@@ -23,6 +23,7 @@ import ReportesPage from "./pages/reportes/ReportesPage";
 import SoportePage from "./pages/soporte/SoportePage";
 import ConfiguracionPage from "./pages/settings/ConfiguracionPage";
 import SuperAdminPage from "./pages/admin/SuperAdminPage";
+import TicketsAdminPage from "./pages/admin/TicketsAdminPage";
 import LoginPage from "./pages/auth/LoginPage";
 
 function App() {
@@ -263,6 +264,16 @@ function App() {
           element={
             adminContext.isSuperAdmin ? (
               <SuperAdminPage currentUser={session.user} adminContext={adminContext} />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          }
+        />
+        <Route
+          path="/mesa-tickets"
+          element={
+            adminContext.isSuperAdmin ? (
+              <TicketsAdminPage currentUser={session.user} />
             ) : (
               <Navigate to="/dashboard" replace />
             )

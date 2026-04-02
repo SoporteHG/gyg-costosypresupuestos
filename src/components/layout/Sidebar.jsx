@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   BarChart3,
   LifeBuoy,
+  Ticket,
   ShieldCheck,
   Settings,
 } from "lucide-react";
@@ -96,10 +97,16 @@ export default function Sidebar({ company, branding, isSuperAdmin }) {
         </NavLink>
 
         {isSuperAdmin ? (
-          <NavLink to="/administracion" className="nav-link nav-link-admin">
-            <ShieldCheck size={18} />
-            Administracion
-          </NavLink>
+          <>
+            <NavLink to="/administracion" className="nav-link nav-link-admin">
+              <ShieldCheck size={18} />
+              Administracion
+            </NavLink>
+            <NavLink to="/mesa-tickets" className="nav-link nav-link-admin">
+              <Ticket size={18} />
+              Mesa de tickets
+            </NavLink>
+          </>
         ) : null}
 
         <NavLink to="/configuracion" className="nav-link">
