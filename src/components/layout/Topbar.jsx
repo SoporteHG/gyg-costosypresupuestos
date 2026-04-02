@@ -17,7 +17,7 @@ function clearStoredSupabaseSession() {
   keysToRemove.forEach((key) => window.localStorage.removeItem(key));
 }
 
-export default function Topbar({ userEmail, onLoggedOut, company, branding }) {
+export default function Topbar({ userEmail, onLoggedOut, company, branding, themeMode, onToggleTheme }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const companyName = branding?.business_name || company?.name || "Tu empresa";
@@ -51,6 +51,17 @@ export default function Topbar({ userEmail, onLoggedOut, company, branding }) {
       </div>
       <div className="topbar-actions">
         {logoutError ? <p className="topbar-error">{logoutError}</p> : null}
+        <button
+          type="button"
+          className={`theme-switch ${themeMode === "dark" ? "is-active" : ""}`}
+          onClick={onToggleTheme}
+          aria-label={themeMode === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+        >
+          <span className="theme-switch-track">
+            <span className="theme-switch-thumb" />
+          </span>
+          <span className="theme-switch-label">{themeMode === "dark" ? "Dark" : "Light"}</span>
+        </button>
         <div className="user">{userEmail || "Usuario"}</div>
         <button
           onClick={handleLogout}

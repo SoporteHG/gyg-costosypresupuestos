@@ -2023,3 +2023,207 @@
     align-items: flex-start;
   }
 }
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.theme-switch-track {
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #bfdbfe;
+  display: flex;
+  align-items: center;
+  padding: 3px;
+}
+
+.theme-switch-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.theme-switch.is-active .theme-switch-track {
+  background: #1d4ed8;
+}
+
+.theme-switch.is-active .theme-switch-thumb {
+  transform: translateX(18px);
+}
+
+.theme-switch-label {
+  font-size: 13px;
+}
+
+.app-theme-dark {
+  background: #0b1120;
+  color: #e2e8f0;
+}
+
+.app-theme-dark .main,
+.app-theme-dark .content {
+  background: #0b1120;
+}
+
+.app-theme-dark .topbar {
+  background: #111827;
+  border-bottom-color: #1f2937;
+}
+
+.app-theme-dark .topbar h3,
+.app-theme-dark .page-header h1,
+.app-theme-dark .page-header h2,
+.app-theme-dark .section-title,
+.app-theme-dark .dashboard-list-head h3,
+.app-theme-dark .dashboard-hero-brand h2,
+.app-theme-dark .stat-card .value,
+.app-theme-dark .dashboard-kpi-row strong,
+.app-theme-dark .dashboard-list-item strong,
+.app-theme-dark .module-card strong,
+.app-theme-dark .support-card strong,
+.app-theme-dark .admin-ticket-update-head strong {
+  color: #f8fafc;
+}
+
+.app-theme-dark .topbar-copy,
+.app-theme-dark .page-header p,
+.app-theme-dark .section-copy,
+.app-theme-dark .module-card p,
+.app-theme-dark .dashboard-list-item p,
+.app-theme-dark .dashboard-shortcut-tile span,
+.app-theme-dark .dashboard-hero-brand p,
+.app-theme-dark .stat-card .label,
+.app-theme-dark .quote-card-copy,
+.app-theme-dark .admin-ticket-update-head span,
+.app-theme-dark .admin-ticket-update-meta,
+.app-theme-dark .empty-state,
+.app-theme-dark .form-group label,
+.app-theme-dark .quotes-summary-label {
+  color: #94a3b8;
+}
+
+.app-theme-dark .module-card,
+.app-theme-dark .stat-card,
+.app-theme-dark .dashboard-list-card,
+.app-theme-dark .dashboard-kpi-row,
+.app-theme-dark .dashboard-shortcut-tile,
+.app-theme-dark .dashboard-hero-chip,
+.app-theme-dark .dashboard-hero,
+.app-theme-dark .support-card,
+.app-theme-dark .admin-ticket-form,
+.app-theme-dark .admin-ticket-update,
+.app-theme-dark .inventory-product-chip,
+.app-theme-dark .support-help-strip,
+.app-theme-dark .empty-state,
+.app-theme-dark .quotes-client-summary,
+.app-theme-dark .quotes-item-row,
+.app-theme-dark .quotes-summary-panel,
+.app-theme-dark .quote-card,
+.app-theme-dark .table-wrap {
+  background: #111827;
+  border-color: #1f2937;
+  box-shadow: none;
+}
+
+.app-theme-dark .dashboard-kpi-row-amount,
+.app-theme-dark .dashboard-shortcut-tile,
+.app-theme-dark .dashboard-hero,
+.app-theme-dark .admin-hero-tile,
+.app-theme-dark .quotes-summary-panel {
+  background: linear-gradient(135deg, #111827 0%, #172033 100%);
+  border-color: #243041;
+}
+
+.app-theme-dark .form-group input,
+.app-theme-dark .form-group textarea,
+.app-theme-dark .quotes-select {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.app-theme-dark .quotes-item-total strong,
+.app-theme-dark .quotes-item-total span,
+.app-theme-dark .quotes-items-title,
+.app-theme-dark .quote-card-notes,
+.app-theme-dark .quotes-client-summary strong,
+.app-theme-dark .quotes-summary-panel strong {
+  color: #e2e8f0;
+}
+
+.app-theme-dark .quotes-item-total span {
+  color: #94a3b8;
+}
+
+.app-theme-dark .form-group input::placeholder,
+.app-theme-dark .form-group textarea::placeholder {
+  color: #64748b;
+}
+
+.app-theme-dark .form-group input:focus,
+.app-theme-dark .form-group textarea:focus,
+.app-theme-dark .quotes-select:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+.app-theme-dark .user {
+  background: #172554;
+  color: #bfdbfe;
+  border-color: #1d4ed8;
+}
+
+.app-theme-dark .secondary-btn,
+.app-theme-dark .table-action-btn,
+.app-theme-dark .theme-switch {
+  background: #172554;
+  color: #bfdbfe;
+  border-color: #1d4ed8;
+}
+
+.app-theme-dark .secondary-btn:hover,
+.app-theme-dark .table-action-btn:hover,
+.app-theme-dark .theme-switch:hover {
+  background: #1e3a8a;
+}
+
+.app-theme-dark .dashboard-list-item,
+.app-theme-dark .module-card,
+.app-theme-dark .dashboard-list-card,
+.app-theme-dark .support-card,
+.app-theme-dark .admin-ticket-update {
+  border-color: #1f2937;
+}
+
+.app-theme-dark table,
+.app-theme-dark th,
+.app-theme-dark td {
+  border-color: #1f2937;
+}
+
+.app-theme-dark .table th {
+  color: #cbd5e1;
+  background: #172033;
+}
+
+.app-theme-dark .table td {
+  color: #e2e8f0;
+  background: #111827;
+}
+
+.app-theme-dark .table tr:hover td {
+  background: #172033;
+}

@@ -26,8 +26,14 @@ import SuperAdminPage from "./pages/admin/SuperAdminPage";
 import TicketsAdminPage from "./pages/admin/TicketsAdminPage";
 import LoginPage from "./pages/auth/LoginPage";
 
+const THEME_STORAGE_KEY = "gyg-theme-mode";
+
 function App() {
   const [session, setSession] = useState(undefined);
+  const [themeMode, setThemeMode] = useState(() => {
+    if (typeof window === "undefined") return "light";
+    return window.localStorage.getItem(THEME_STORAGE_KEY) || "light";
+  });
   const [companyContext, setCompanyContext] = useState(null);
   const [companyContextError, setCompanyContextError] = useState("");
   const [adminContext, setAdminContext] = useState({
@@ -82,6 +88,12 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    document.documentElement.setAttribute("data-theme", themeMode);
+  }, [themeMode]);
+
   async function loadCompanyContext(userId) {
     if (isLoadingCompanyRef.current) {
       return;
@@ -106,6 +118,10 @@ function App() {
   async function loadAdminState(user) {
     const context = await getAdminContext(user);
     setAdminContext(context);
+  }
+
+  function toggleThemeMode() {
+    setThemeMode((currentValue) => (currentValue === "dark" ? "light" : "dark"));
   }
 
   useEffect(() => {
@@ -183,6 +199,8 @@ function App() {
       company={companyContext.company}
       branding={companyContext.branding}
       isSuperAdmin={adminContext.isSuperAdmin}
+      themeMode={themeMode}
+      onToggleTheme={toggleThemeMode}
     >
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
