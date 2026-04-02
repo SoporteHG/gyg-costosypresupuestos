@@ -8,6 +8,10 @@ export default function AppLayout({
   onLogout,
   company,
   branding,
+  companyOptions,
+  activeCompanyId,
+  onCompanyChange,
+  switchingCompany,
   isSuperAdmin,
   themeMode,
   onToggleTheme,
@@ -21,6 +25,10 @@ export default function AppLayout({
           onLoggedOut={onLogout}
           company={company}
           branding={branding}
+          companyOptions={companyOptions}
+          activeCompanyId={activeCompanyId}
+          onCompanyChange={onCompanyChange}
+          switchingCompany={switchingCompany}
           themeMode={themeMode}
           onToggleTheme={onToggleTheme}
         />

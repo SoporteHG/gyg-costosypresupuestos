@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
-import { getCurrentCompanyContext } from "./lib/company";
+import { clearStoredCompanyContext, getCurrentCompanyContext } from "./lib/company";
 import {
   getAdminContext,
   logPlatformAccess,
@@ -36,6 +36,7 @@ function App() {
   });
   const [companyContext, setCompanyContext] = useState(null);
   const [companyContextError, setCompanyContextError] = useState("");
+  const [isSwitchingCompany, setIsSwitchingCompany] = useState(false);
   const [adminContext, setAdminContext] = useState({
     isSuperAdmin: false,
     role: "user",
@@ -45,9 +46,14 @@ function App() {
   const lastAuditKeyRef = useRef("");
 
   function handleLoggedOut() {
+    const currentUserId = session?.user?.id;
+    if (currentUserId) {
+      clearStoredCompanyContext(currentUserId);
+    }
     setSession(null);
     setCompanyContext(null);
     setCompanyContextError("");
+    setIsSwitchingCompany(false);
     setAdminContext({
       isSuperAdmin: false,
       role: "user",
@@ -94,15 +100,16 @@ function App() {
     document.documentElement.setAttribute("data-theme", themeMode);
   }, [themeMode]);
 
-  async function loadCompanyContext(userId) {
+  async function loadCompanyContext(userId, preferredCompanyId = null) {
     if (isLoadingCompanyRef.current) {
       return;
     }
 
     try {
       isLoadingCompanyRef.current = true;
+      setIsSwitchingCompany(true);
       setCompanyContextError("");
-      const context = await getCurrentCompanyContext(userId);
+      const context = await getCurrentCompanyContext(userId, preferredCompanyId);
       setCompanyContext(context);
     } catch (error) {
       console.error("Error cargando el contexto de empresa:", error);
@@ -112,6 +119,7 @@ function App() {
       setCompanyContextError(error.message || "No se pudo cargar la empresa activa.");
     } finally {
       isLoadingCompanyRef.current = false;
+      setIsSwitchingCompany(false);
     }
   }
 
@@ -122,6 +130,15 @@ function App() {
 
   function toggleThemeMode() {
     setThemeMode((currentValue) => (currentValue === "dark" ? "light" : "dark"));
+  }
+
+  async function handleCompanyChange(nextCompanyId) {
+    const userId = session?.user?.id;
+    if (!userId || !nextCompanyId || nextCompanyId === companyContext?.companyId) {
+      return;
+    }
+
+    await loadCompanyContext(userId, nextCompanyId);
   }
 
   useEffect(() => {
@@ -198,6 +215,10 @@ function App() {
       onLogout={handleLoggedOut}
       company={companyContext.company}
       branding={companyContext.branding}
+      companyOptions={companyContext.availableCompanies || []}
+      activeCompanyId={companyContext.companyId}
+      onCompanyChange={handleCompanyChange}
+      switchingCompany={isSwitchingCompany}
       isSuperAdmin={adminContext.isSuperAdmin}
       themeMode={themeMode}
       onToggleTheme={toggleThemeMode}

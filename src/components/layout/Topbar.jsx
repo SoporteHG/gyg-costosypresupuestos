@@ -17,7 +17,18 @@ function clearStoredSupabaseSession() {
   keysToRemove.forEach((key) => window.localStorage.removeItem(key));
 }
 
-export default function Topbar({ userEmail, onLoggedOut, company, branding, themeMode, onToggleTheme }) {
+export default function Topbar({
+  userEmail,
+  onLoggedOut,
+  company,
+  branding,
+  companyOptions = [],
+  activeCompanyId,
+  onCompanyChange,
+  switchingCompany,
+  themeMode,
+  onToggleTheme,
+}) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [now, setNow] = useState(() => new Date());
@@ -84,6 +95,22 @@ export default function Topbar({ userEmail, onLoggedOut, company, branding, them
           </span>
           <span className="theme-switch-label">{themeMode === "dark" ? "Dark" : "Light"}</span>
         </button>
+        {companyOptions.length > 1 ? (
+          <label className="topbar-company-switch">
+            <span className="topbar-company-switch-label">Empresa</span>
+            <select
+              value={activeCompanyId || ""}
+              onChange={(event) => onCompanyChange?.(event.target.value)}
+              disabled={switchingCompany}
+            >
+              {companyOptions.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <div className="user">{userEmail || "Usuario"}</div>
         <div className="topbar-clock" aria-label={`Fecha ${formattedDate} y hora ${formattedTime}`}>
           <span className="topbar-clock-date">{formattedDate}</span>

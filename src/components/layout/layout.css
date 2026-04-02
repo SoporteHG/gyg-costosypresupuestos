@@ -130,6 +130,37 @@
   gap: 10px;
 }
 
+.topbar-company-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.topbar-company-switch-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.topbar-company-switch select {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 0 14px;
+  font-weight: 700;
+  outline: none;
+}
+
+.topbar-company-switch select:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 .topbar-error {
   margin: 0;
   color: #dc2626;
@@ -1674,6 +1705,20 @@
   margin-top: 1.5rem;
 }
 
+.admin-checkbox-field {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.admin-checkbox-field input {
+  width: 18px;
+  height: 18px;
+}
+
 @media (max-width: 768px) {
   .reports-actions {
     flex-direction: column;
@@ -2219,6 +2264,20 @@
 .app-theme-dark .topbar-clock {
   background: #172033;
   border-color: #334155;
+  color: #cbd5e1;
+}
+
+.app-theme-dark .topbar-company-switch-label {
+  color: #94a3b8;
+}
+
+.app-theme-dark .topbar-company-switch select {
+  background: #172554;
+  color: #bfdbfe;
+  border-color: #1d4ed8;
+}
+
+.app-theme-dark .admin-checkbox-field {
   color: #cbd5e1;
 }
 

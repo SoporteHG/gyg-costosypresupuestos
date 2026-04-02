@@ -7,7 +7,14 @@ const REQUEST_TIMEOUT_MS = 8000;
 
 export default function SuperAdminPage({ currentUser, adminContext }) {
   const navigate = useNavigate();
+  const [companyForm, setCompanyForm] = useState({
+    companyName: "",
+    ownerEmail: "",
+    businessType: "general",
+    makeDefault: false,
+  });
   const [loading, setLoading] = useState(true);
+  const [creatingCompany, setCreatingCompany] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("Preparando panel administrativo...");
   const [companies, setCompanies] = useState([]);
@@ -292,6 +299,56 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
     }
   }
 
+  function handleCompanyFormChange(event) {
+    const { name, value, type, checked } = event.target;
+    setCompanyForm((currentValue) => ({
+      ...currentValue,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  }
+
+  async function handleCreateCompany(event) {
+    event.preventDefault();
+
+    const companyName = companyForm.companyName.trim();
+    const ownerEmail = companyForm.ownerEmail.trim().toLowerCase();
+
+    if (!companyName || !ownerEmail) {
+      setErrorMessage("Captura el nombre de la empresa y el correo del usuario que la administrara.");
+      return;
+    }
+
+    try {
+      setCreatingCompany(true);
+      setErrorMessage("");
+
+      const { data, error } = await supabase.rpc("admin_create_company_with_owner", {
+        p_company_name: companyName,
+        p_owner_email: ownerEmail,
+        p_business_type: companyForm.businessType || "general",
+        p_make_default: !!companyForm.makeDefault,
+      });
+
+      if (error) throw error;
+
+      setCompanyForm({
+        companyName: "",
+        ownerEmail: "",
+        businessType: "general",
+        makeDefault: false,
+      });
+
+      const resultCompanyName = data?.[0]?.company_name || companyName;
+      setStatusMessage(`Empresa creada correctamente: ${resultCompanyName}.`);
+      await loadAdminData();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error.message || "No se pudo crear la empresa o asignar el usuario.");
+    } finally {
+      setCreatingCompany(false);
+    }
+  }
+
   function updateTicketForm(ticketId, field, value) {
     setTicketForms((currentValue) => ({
       ...currentValue,
@@ -538,6 +595,64 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
               <span>Cuando corras el SQL de Super Admin podras listar y administrar altas nuevas aqui.</span>
             </div>
           )}
+
+          <div className="section-head admin-usage-head">
+            <div>
+              <h2 className="section-title">Alta rapida de empresa</h2>
+              <p className="section-copy">
+                Crea una empresa nueva y asignala a un usuario existente por correo, sin salir del panel.
+              </p>
+            </div>
+          </div>
+
+          <form className="form-grid" onSubmit={handleCreateCompany}>
+            <div className="form-group">
+              <label>Nombre de la empresa</label>
+              <input
+                name="companyName"
+                value={companyForm.companyName}
+                onChange={handleCompanyFormChange}
+                placeholder="SEPROBAT COMPANY"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Correo del usuario</label>
+              <input
+                name="ownerEmail"
+                type="email"
+                value={companyForm.ownerEmail}
+                onChange={handleCompanyFormChange}
+                placeholder="compras@seprobat.com"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Tipo de negocio</label>
+              <select name="businessType" value={companyForm.businessType} onChange={handleCompanyFormChange}>
+                <option value="general">general</option>
+                <option value="retail">retail</option>
+                <option value="arquitectura">arquitectura</option>
+                <option value="servicios">servicios</option>
+              </select>
+            </div>
+
+            <label className="admin-checkbox-field">
+              <input
+                name="makeDefault"
+                type="checkbox"
+                checked={companyForm.makeDefault}
+                onChange={handleCompanyFormChange}
+              />
+              <span>Dejarla como empresa predeterminada para ese usuario</span>
+            </label>
+
+            <div className="settings-actions">
+              <button type="submit" className="primary-btn" disabled={creatingCompany}>
+                {creatingCompany ? "Creando empresa..." : "Crear empresa y asignar usuario"}
+              </button>
+            </div>
+          </form>
 
           <div className="section-head admin-usage-head">
             <div>
