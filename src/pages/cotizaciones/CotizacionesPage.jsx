@@ -18,6 +18,7 @@ const initialItem = {
 };
 
 const initialForm = {
+  folio: "",
   clienteId: "",
   estado: "pendiente",
   vigenciaDias: String(DEFAULT_VALIDITY_DAYS),
@@ -52,6 +53,8 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [statusDetail, setStatusDetail] = useState("Preparando carga...");
+  const [quotePrefix, setQuotePrefix] = useState(resolveQuotePrefix(branding));
+  const [nextQuoteNumber, setNextQuoteNumber] = useState(resolveQuoteNextNumber(branding));
 
   const selectedClient = useMemo(
     () => clientes.find((cliente) => cliente.id === form.clienteId) || null,
@@ -61,6 +64,23 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
   useEffect(() => {
     loadCotizacionesModule();
   }, [currentUser?.id, companyId]);
+
+  useEffect(() => {
+    const resolvedPrefix = resolveQuotePrefix(branding);
+    const resolvedNextNumber = resolveQuoteNextNumber(branding);
+    setQuotePrefix(resolvedPrefix);
+    setNextQuoteNumber(resolvedNextNumber);
+    setForm((previous) => ({
+      ...previous,
+      folio:
+        previous.folio && previous.folio.trim()
+          ? previous.folio
+          : buildConfiguredQuoteNumber({
+              prefix: resolvedPrefix,
+              nextNumber: resolvedNextNumber,
+            }),
+    }));
+  }, [branding?.quote_prefix, branding?.quote_next_number, companyId]);
 
   useEffect(() => {
     if (!selectedClient) {
@@ -269,9 +289,15 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     });
   }
 
-  function resetForm() {
+  function resetForm(sequenceOverride, prefixOverride) {
+    const suggestedFolio = buildConfiguredQuoteNumber({
+      prefix: prefixOverride ?? quotePrefix,
+      nextNumber: sequenceOverride || nextQuoteNumber,
+    });
+
     setForm({
       ...initialForm,
+      folio: suggestedFolio,
       items: [
         {
           ...initialItem,
@@ -313,7 +339,13 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       }
 
       const createdAt = new Date().toISOString();
-      const folio = buildQuoteNumber(createdAt);
+      const folio =
+        form.folio?.trim() ||
+        buildConfiguredQuoteNumber({
+          prefix: quotePrefix,
+          nextNumber: nextQuoteNumber,
+          dateValue: createdAt,
+        });
       const payload = {
         tenant_id: tenantId,
         folio,
@@ -352,10 +384,29 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
 
       if (error) throw error;
 
+      const nextSeries = resolveNextQuoteSeries(folio, quotePrefix, nextQuoteNumber + 1);
+      const { error: brandingUpdateError } = await supabase
+        .from("company_branding")
+        .upsert(
+          {
+            company_id: tenantId,
+            quote_prefix: nextSeries.prefix || null,
+            quote_next_number: nextSeries.nextNumber,
+          },
+          { onConflict: "company_id" }
+        );
+
+      if (!brandingUpdateError) {
+        setQuotePrefix(nextSeries.prefix);
+        setNextQuoteNumber(nextSeries.nextNumber);
+      } else {
+        console.error("No se pudo actualizar el consecutivo de cotizaciones:", brandingUpdateError);
+      }
+
       setCotizaciones((previous) => [data, ...previous]);
       setMessage("Cotizacion creada correctamente.");
       setStatusDetail("Cotizacion guardada.");
-      resetForm();
+      resetForm(nextSeries.nextNumber, nextSeries.prefix);
     } catch (error) {
       console.error(error);
       setErrorMessage(error.message || "No se pudo guardar la cotizacion.");
@@ -400,7 +451,13 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       .filter((item) => item.nombre && item.cantidad > 0);
 
     return {
-      folio: `BORRADOR-${buildQuoteNumber(createdAt).replace("COT-", "")}`,
+      folio:
+        form.folio?.trim() ||
+        `BORRADOR-${buildConfiguredQuoteNumber({
+          prefix: quotePrefix,
+          nextNumber: nextQuoteNumber,
+          dateValue: createdAt,
+        }).replace(/^[A-Z]+-?/i, "")}`,
       cliente_nombre: selectedClient?.nombre || "Cliente no seleccionado",
       cliente_empresa: selectedClient?.empresa || null,
       cliente_rfc: selectedClient?.rfc || null,
@@ -695,6 +752,15 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
 
           <form className="quotes-form" onSubmit={handleSubmit}>
             <div className="quotes-top-grid quotes-top-grid-wide">
+              <div className="form-group">
+                <label>Folio</label>
+                <input
+                  value={form.folio}
+                  onChange={(event) => updateFormField("folio", event.target.value)}
+                  placeholder="SEPCO-7900"
+                />
+              </div>
+
               <div className="form-group">
                 <label>Cliente</label>
                 <select
@@ -1020,6 +1086,46 @@ function buildQuoteNumber(dateValue) {
   const year = issueDate.getFullYear();
   const stamp = issueDate.getTime().toString().slice(-6);
   return `COT-${year}-${stamp}`;
+}
+
+function resolveQuoteNextNumber(branding) {
+  return Math.max(1, Number(branding?.quote_next_number || 1) || 1);
+}
+
+function resolveQuotePrefix(branding) {
+  return String(branding?.quote_prefix || "").trim().toUpperCase();
+}
+
+function buildConfiguredQuoteNumber({ prefix, nextNumber, dateValue }) {
+  const normalizedPrefix = String(prefix || "").trim().toUpperCase();
+  const normalizedNextNumber = Math.max(1, Number(nextNumber || 1) || 1);
+
+  if (normalizedPrefix) {
+    return `${normalizedPrefix}-${normalizedNextNumber}`;
+  }
+
+  if (normalizedNextNumber > 1) {
+    return `COT-${normalizedNextNumber}`;
+  }
+
+  return buildQuoteNumber(dateValue);
+}
+
+function resolveNextQuoteSeries(folio, fallbackPrefix, fallbackNextNumber) {
+  const normalizedFolio = String(folio || "").trim().toUpperCase();
+  const match = normalizedFolio.match(/^(.*?)-(\d+)$/);
+
+  if (!match) {
+    return {
+      prefix: String(fallbackPrefix || "").trim().toUpperCase(),
+      nextNumber: Math.max(1, Number(fallbackNextNumber || 1) || 1),
+    };
+  }
+
+  return {
+    prefix: String(match[1] || "").trim().toUpperCase(),
+    nextNumber: Number(match[2]) + 1,
+  };
 }
 
 function calculateValidityDate(createdAt, validityDays) {

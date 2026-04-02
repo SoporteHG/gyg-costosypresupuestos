@@ -16,6 +16,8 @@ const initialForm = {
   pdf_footer: "",
   default_terms: "",
   default_notes: "",
+  quote_prefix: "",
+  quote_next_number: "1",
 };
 
 const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024;
@@ -58,7 +60,14 @@ export default function ConfiguracionPage({
             Object.entries({
               ...initialForm,
               ...branding,
-            }).map(([key, value]) => [key, key.includes("color") ? value || initialForm[key] : toText(value)])
+            }).map(([key, value]) => [
+              key,
+              key.includes("color")
+                ? value || initialForm[key]
+                : key === "quote_next_number"
+                  ? String(value || initialForm.quote_next_number)
+                  : toText(value),
+            ])
           ),
         });
       } else {
@@ -156,6 +165,8 @@ export default function ConfiguracionPage({
         pdf_footer: toText(form.pdf_footer).trim(),
         default_terms: toText(form.default_terms).trim(),
         default_notes: toText(form.default_notes).trim(),
+        quote_prefix: toText(form.quote_prefix).trim(),
+        quote_next_number: Math.max(1, Number(form.quote_next_number || 1) || 1),
       };
 
       const { error } = await supabase
@@ -313,6 +324,16 @@ export default function ConfiguracionPage({
             <div className="form-group form-group-full">
               <label>Direccion</label>
               <textarea name="address" value={form.address} onChange={handleChange} rows="3" placeholder="Calle, numero, colonia, ciudad" />
+            </div>
+
+            <div className="form-group">
+              <label>Prefijo de folios</label>
+              <input name="quote_prefix" value={form.quote_prefix} onChange={handleChange} placeholder="SEPCO" />
+            </div>
+
+            <div className="form-group">
+              <label>Siguiente numero de cotizacion</label>
+              <input name="quote_next_number" value={form.quote_next_number} onChange={handleChange} placeholder="7900" />
             </div>
 
             <div className="form-group form-group-full">
