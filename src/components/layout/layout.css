@@ -1644,6 +1644,10 @@
   margin-top: 0;
 }
 
+.admin-usage-head {
+  margin-top: 1.5rem;
+}
+
 @media (max-width: 768px) {
   .reports-actions {
     flex-direction: column;

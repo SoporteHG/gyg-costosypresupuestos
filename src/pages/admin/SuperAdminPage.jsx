@@ -16,6 +16,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
   const [tickets, setTickets] = useState([]);
   const [liveUsers, setLiveUsers] = useState([]);
   const [dailyUsers, setDailyUsers] = useState([]);
+  const [usageReport, setUsageReport] = useState([]);
   const [ticketUpdates, setTicketUpdates] = useState([]);
   const [ticketForms, setTicketForms] = useState({});
   const [savingTicketId, setSavingTicketId] = useState("");
@@ -97,6 +98,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         ticketsResult,
         liveUsersResult,
         dailyUsersResult,
+        usageReportResult,
         ticketUpdatesResult,
       ] =
         await Promise.allSettled([
@@ -154,6 +156,16 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
           ),
           withTimeout(
             supabase
+              .from("admin_company_usage_report")
+              .select(
+                "company_id, empresa, status, usuarios, clientes, productos, cotizaciones, ventas, tickets, total_size_aprox, total_bytes_aprox, last_activity_at"
+              )
+              .order("total_bytes_aprox", { ascending: false })
+              .limit(20),
+            "consultar admin_company_usage_report"
+          ),
+          withTimeout(
+            supabase
               .from("support_ticket_updates")
               .select(
                 "id, ticket_id, author_email, author_role, previous_status, new_status, message, is_internal, created_at"
@@ -171,6 +183,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         ticketsResult,
         liveUsersResult,
         dailyUsersResult,
+        usageReportResult,
         ticketUpdatesResult,
       ]
         .filter((result) => result.status === "rejected")
@@ -183,6 +196,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       const ticketsResponse = ticketsResult.status === "fulfilled" ? ticketsResult.value : null;
       const liveUsersResponse = liveUsersResult.status === "fulfilled" ? liveUsersResult.value : null;
       const dailyUsersResponse = dailyUsersResult.status === "fulfilled" ? dailyUsersResult.value : null;
+      const usageReportResponse = usageReportResult.status === "fulfilled" ? usageReportResult.value : null;
       const ticketUpdatesResponse = ticketUpdatesResult.status === "fulfilled" ? ticketUpdatesResult.value : null;
 
       if (companiesResponse?.error) throw companiesResponse.error;
@@ -191,6 +205,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       if (ticketsResponse?.error) throw ticketsResponse.error;
       if (liveUsersResponse?.error) throw liveUsersResponse.error;
       if (dailyUsersResponse?.error) throw dailyUsersResponse.error;
+      if (usageReportResponse?.error) throw usageReportResponse.error;
       if (ticketUpdatesResponse?.error) throw ticketUpdatesResponse.error;
 
       setCompanies(
@@ -208,6 +223,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       setTickets(ticketsResponse?.data || []);
       setLiveUsers((liveUsersResponse?.data || []).filter((entry) => isPresenceFresh(entry.last_seen_at)));
       setDailyUsers(dailyUsersResponse?.data || []);
+      setUsageReport(usageReportResponse?.data || []);
       setTicketUpdates(ticketUpdatesResponse?.data || []);
       setTicketForms((currentValue) => {
         const nextValue = { ...currentValue };
@@ -520,6 +536,61 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
             <div className="empty-state">
               <strong>No hay empresas visibles todavia.</strong>
               <span>Cuando corras el SQL de Super Admin podras listar y administrar altas nuevas aqui.</span>
+            </div>
+          )}
+
+          <div className="section-head admin-usage-head">
+            <div>
+              <h2 className="section-title">Consumo por empresa</h2>
+              <p className="section-copy">
+                Resumen de uso por cliente: usuarios, registros, tickets, tamano estimado y ultima actividad.
+              </p>
+            </div>
+          </div>
+
+          {usageReport.length > 0 ? (
+            <div className="table-wrap">
+              <table className="table reports-table">
+                <thead>
+                  <tr>
+                    <th>Empresa</th>
+                    <th>Estatus</th>
+                    <th>Usuarios</th>
+                    <th>Clientes</th>
+                    <th>Productos</th>
+                    <th>Cotizaciones</th>
+                    <th>Ventas</th>
+                    <th>Tickets</th>
+                    <th>Tamano</th>
+                    <th>Ultima actividad</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usageReport.map((entry) => (
+                    <tr key={entry.company_id}>
+                      <td>{entry.empresa || "Sin empresa"}</td>
+                      <td>
+                        <span className={`status-chip ${companyStatusClass(entry.status)}`}>
+                          {companyStatusLabel(entry.status)}
+                        </span>
+                      </td>
+                      <td>{entry.usuarios || 0}</td>
+                      <td>{entry.clientes || 0}</td>
+                      <td>{entry.productos || 0}</td>
+                      <td>{entry.cotizaciones || 0}</td>
+                      <td>{entry.ventas || 0}</td>
+                      <td>{entry.tickets || 0}</td>
+                      <td>{entry.total_size_aprox || "0 bytes"}</td>
+                      <td>{entry.last_activity_at ? formatDate(entry.last_activity_at) : "Sin actividad"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <strong>No hay reporte de consumo disponible.</strong>
+              <span>Ejecuta la vista `admin_company_usage_report` en Supabase para mostrarlo aqui.</span>
             </div>
           )}
         </section>
