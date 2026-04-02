@@ -17,6 +17,7 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
   const [cotizaciones, setCotizaciones] = useState([]);
   const [ventas, setVentas] = useState([]);
   const [inventoryMovements, setInventoryMovements] = useState([]);
+  const [supportTickets, setSupportTickets] = useState([]);
 
   useEffect(() => {
     loadDashboard();
@@ -62,8 +63,9 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
       salesMonthAmount: salesMonth.reduce((sum, item) => sum + Number(item.total || 0), 0),
       salesCount: ventas.length,
       outOfStock: outOfStockProducts.length,
+      openSupportTickets: supportTickets.filter((entry) => entry.status === "abierto" || entry.status === "en_revision").length,
     };
-  }, [clientes, productos, cotizaciones, ventas, outOfStockProducts]);
+  }, [clientes, productos, cotizaciones, ventas, outOfStockProducts, supportTickets]);
 
   async function withTimeout(promise, label) {
     let timeoutId;
@@ -89,7 +91,7 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
       setErrorMessage("");
       setStatusDetail("Consultando actividad comercial...");
 
-      const [clientesResult, productosResult, cotizacionesResult, ventasResult, inventoryResult] = await Promise.allSettled([
+      const [clientesResult, productosResult, cotizacionesResult, ventasResult, inventoryResult, supportResult] = await Promise.allSettled([
         withTimeout(
           supabase
             .from("clientes")
@@ -133,9 +135,19 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
             .order("created_at", { ascending: false }),
           "consultar inventario"
         ),
+        withTimeout(
+          supabase
+            .from("support_tickets")
+            .select("id, ticket_number, subject, module_name, priority, status, created_at")
+            .eq("tenant_id", companyId)
+            .eq("user_id", currentUser?.id || "")
+            .order("created_at", { ascending: false })
+            .limit(10),
+          "consultar tickets de soporte"
+        ),
       ]);
 
-      const failures = [clientesResult, productosResult, cotizacionesResult, ventasResult, inventoryResult]
+      const failures = [clientesResult, productosResult, cotizacionesResult, ventasResult, inventoryResult, supportResult]
         .filter((result) => result.status === "rejected")
         .map((result) => result.reason?.message)
         .filter(Boolean);
@@ -149,18 +161,21 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
       const cotizacionesResponse = cotizacionesResult.value;
       const ventasResponse = ventasResult.value;
       const inventoryResponse = inventoryResult.value;
+      const supportResponse = supportResult.value;
 
       if (clientesResponse.error) throw clientesResponse.error;
       if (productosResponse.error) throw productosResponse.error;
       if (cotizacionesResponse.error) throw cotizacionesResponse.error;
       if (ventasResponse.error) throw ventasResponse.error;
       if (inventoryResponse.error) throw inventoryResponse.error;
+      if (supportResponse.error) throw supportResponse.error;
 
       setClientes(clientesResponse.data || []);
       setProductos(productosResponse.data || []);
       setCotizaciones(cotizacionesResponse.data || []);
       setVentas(ventasResponse.data || []);
       setInventoryMovements((inventoryResponse.data || []).map(normalizeMovement));
+      setSupportTickets(supportResponse.data || []);
       setStatusDetail("Indicadores actualizados.");
     } catch (error) {
       console.error(error);
@@ -219,6 +234,10 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
         <div className="stat-card danger">
           <div className="label">Articulos sin stock</div>
           <div className="value">{metrics.outOfStock}</div>
+        </div>
+        <div className="stat-card warning">
+          <div className="label">Mis tickets abiertos</div>
+          <div className="value">{metrics.openSupportTickets}</div>
         </div>
       </div>
 
@@ -289,6 +308,36 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
                 <div className="empty-state">
                   <strong>No hay cotizaciones recientes.</strong>
                   <span>Crea la primera desde el modulo comercial.</span>
+                </div>
+              )}
+            </div>
+
+            <div className="dashboard-list-card">
+              <div className="dashboard-list-head">
+                <h3>Mis tickets de soporte</h3>
+                <Link to="/soporte" className="dashboard-link-btn">Ir a soporte</Link>
+              </div>
+              {supportTickets.length > 0 ? (
+                <div className="dashboard-list">
+                  {supportTickets.slice(0, 5).map((ticket) => (
+                    <article key={ticket.id} className="dashboard-list-item">
+                      <div>
+                        <strong>{ticket.ticket_number || "Sin folio"}</strong>
+                        <p>{ticket.subject || "Ticket sin asunto"}</p>
+                      </div>
+                      <div className="dashboard-list-meta">
+                        <span className={`status-chip ${supportStatusClass(ticket.status)}`}>
+                          {supportStatusLabel(ticket.status)}
+                        </span>
+                        <span>{supportPriorityLabel(ticket.priority)}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <strong>No has levantado tickets.</strong>
+                  <span>Cuando reportes uno, lo veras aqui con su estatus.</span>
                 </div>
               )}
             </div>
@@ -431,4 +480,24 @@ function statusLabel(status) {
   if (status === "autorizada") return "Autorizada";
   if (status === "rechazada") return "No autorizada";
   return "Pendiente";
+}
+
+function supportPriorityLabel(priority) {
+  if (priority === "critica") return "Critica";
+  if (priority === "alta") return "Alta";
+  if (priority === "baja") return "Baja";
+  return "Media";
+}
+
+function supportStatusLabel(status) {
+  if (status === "en_revision") return "En revision";
+  if (status === "resuelto") return "Resuelto";
+  if (status === "cerrado") return "Cerrado";
+  return "Abierto";
+}
+
+function supportStatusClass(status) {
+  if (status === "resuelto" || status === "cerrado") return "status-chip-success";
+  if (status === "en_revision") return "status-chip";
+  return "status-chip-warning";
 }
