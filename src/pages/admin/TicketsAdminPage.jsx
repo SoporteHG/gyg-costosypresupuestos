@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 const REQUEST_TIMEOUT_MS = 8000;
+const OPEN_STATUSES = ["abierto"];
+const PENDING_STATUSES = ["en_revision", "esperando_usuario"];
+const CLOSED_STATUSES = ["resuelto", "cerrado"];
 
 export default function TicketsAdminPage({ currentUser }) {
   const [loading, setLoading] = useState(true);
   const [savingTicketId, setSavingTicketId] = useState("");
+  const [expandedTickets, setExpandedTickets] = useState({});
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("Preparando mesa de tickets...");
   const [tickets, setTickets] = useState([]);
   const [ticketUpdates, setTicketUpdates] = useState([]);
   const [ticketForms, setTicketForms] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("todos");
 
   useEffect(() => {
     loadTicketsDesk();
@@ -30,7 +33,6 @@ export default function TicketsAdminPage({ currentUser }) {
 
   const visibleTickets = useMemo(() => {
     return tickets.filter((ticket) => {
-      const matchesStatus = statusFilter === "todos" ? true : ticket.status === statusFilter;
       const haystack = [
         ticket.ticket_number,
         ticket.subject,
@@ -40,13 +42,25 @@ export default function TicketsAdminPage({ currentUser }) {
       ]
         .join(" ")
         .toLowerCase();
-      const matchesSearch = searchTerm.trim()
-        ? haystack.includes(searchTerm.trim().toLowerCase())
-        : true;
 
-      return matchesStatus && matchesSearch;
+      return searchTerm.trim() ? haystack.includes(searchTerm.trim().toLowerCase()) : true;
     });
-  }, [tickets, searchTerm, statusFilter]);
+  }, [tickets, searchTerm]);
+
+  const openTickets = useMemo(
+    () => visibleTickets.filter((ticket) => OPEN_STATUSES.includes(ticket.status)),
+    [visibleTickets]
+  );
+
+  const pendingTickets = useMemo(
+    () => visibleTickets.filter((ticket) => PENDING_STATUSES.includes(ticket.status)),
+    [visibleTickets]
+  );
+
+  const closedTickets = useMemo(
+    () => visibleTickets.filter((ticket) => CLOSED_STATUSES.includes(ticket.status)),
+    [visibleTickets]
+  );
 
   async function withTimeout(promise, label) {
     let timeoutId;
@@ -225,17 +239,24 @@ export default function TicketsAdminPage({ currentUser }) {
     }
   }
 
+  function toggleTicket(ticketId) {
+    setExpandedTickets((currentValue) => ({
+      ...currentValue,
+      [ticketId]: !currentValue[ticketId],
+    }));
+  }
+
   return (
     <div>
       <div className="page-header">
         <h1>Mesa de tickets</h1>
-        <p>Atiende incidencias, responde seguimiento y cierra tickets desde un módulo dedicado.</p>
+        <p>Organiza la atencion en tres bandejas claras: abiertos, pending y cerrados.</p>
       </div>
 
       <section className="module-card">
         <div className="section-head">
           <div>
-            <h2 className="section-title">Centro de atención</h2>
+            <h2 className="section-title">Centro de atencion</h2>
             <p className="section-copy">{statusMessage}</p>
           </div>
           <button type="button" className="secondary-btn" onClick={loadTicketsDesk} disabled={loading}>
@@ -252,150 +273,357 @@ export default function TicketsAdminPage({ currentUser }) {
               placeholder="Folio, asunto, correo, empresa o modulo"
             />
           </div>
-          <div className="form-group">
-            <label>Estatus</label>
-            <select
-              className="quotes-select"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-            >
-              <option value="todos">Todos</option>
-              <option value="abierto">Abiertos</option>
-              <option value="en_revision">En revision</option>
-              <option value="esperando_usuario">Esperando usuario</option>
-              <option value="resuelto">Resueltos</option>
-              <option value="cerrado">Cerrados</option>
-            </select>
-          </div>
         </div>
 
         {errorMessage ? <p className="form-message form-message-error">{errorMessage}</p> : null}
 
-        {visibleTickets.length > 0 ? (
-          <div className="support-cards-grid admin-support-grid">
-            {visibleTickets.map((ticket) => (
-              <article key={ticket.id} className="support-card admin-ticket-card">
-                <div className="support-card-head">
-                  <div>
-                    <h3 className="quote-card-title">{ticket.ticket_number || "Sin folio"}</h3>
-                    <p className="quote-card-copy">{ticket.subject || "Ticket sin asunto"}</p>
-                    <p className="quote-card-copy">
-                      {ticket.user_email || "Sin correo"} | {ticket.company_name || "Sin empresa"}
-                    </p>
-                  </div>
-                  <div className="support-card-badges">
-                    <span className={`status-chip ${supportPriorityClass(ticket.priority)}`}>
-                      {supportPriorityLabel(ticket.priority)}
-                    </span>
-                    <span className={`status-chip ${supportStatusClass(ticket.status)}`}>
-                      {supportStatusLabel(ticket.status)}
-                    </span>
-                  </div>
-                </div>
+        <div className="tickets-desk-sections">
+          <section className="tickets-desk-section">
+            <div className="tickets-desk-section-head">
+              <div>
+                <h3>Tickets abiertos</h3>
+                <p>{openTickets.length} ticket(s) nuevos por atender</p>
+              </div>
+            </div>
 
-                <div className="quote-card-meta">
-                  <div>
-                    <span className="quotes-summary-label">Modulo</span>
-                    <strong>{ticket.module_name || "general"}</strong>
-                  </div>
-                  <div>
-                    <span className="quotes-summary-label">Asignado</span>
-                    <strong>{ticket.assigned_email || "Sin asignar"}</strong>
-                  </div>
-                  <div>
-                    <span className="quotes-summary-label">Actualizacion</span>
-                    <strong>{formatDate(ticket.updated_at)}</strong>
-                  </div>
-                </div>
-
-                {ticket.resolution_summary ? (
-                  <p className="quote-card-notes">Resolucion: {ticket.resolution_summary}</p>
-                ) : null}
-
-                <div className="admin-ticket-form">
-                  <div className="form-group">
-                    <label>Estatus</label>
-                    <select
-                      className="quotes-select"
-                      value={ticketForms[ticket.id]?.status || ticket.status || "abierto"}
-                      onChange={(event) => updateTicketForm(ticket.id, "status", event.target.value)}
-                    >
-                      <option value="abierto">Abierto</option>
-                      <option value="en_revision">En revision</option>
-                      <option value="esperando_usuario">Esperando usuario</option>
-                      <option value="resuelto">Resuelto</option>
-                      <option value="cerrado">Cerrado</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group form-group-full">
-                    <label>Respuesta / seguimiento</label>
-                    <textarea
-                      rows="3"
-                      value={ticketForms[ticket.id]?.message || ""}
-                      onChange={(event) => updateTicketForm(ticket.id, "message", event.target.value)}
-                      placeholder="Describe la accion realizada, dudas o resolucion del caso..."
-                    />
-                  </div>
-
-                  <label className="admin-ticket-internal">
-                    <input
-                      type="checkbox"
-                      checked={ticketForms[ticket.id]?.isInternal || false}
-                      onChange={(event) => updateTicketForm(ticket.id, "isInternal", event.target.checked)}
-                    />
-                    Nota interna (no visible para el usuario)
-                  </label>
-
-                  <div className="settings-actions">
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      onClick={() => handleTicketUpdate(ticket)}
-                      disabled={savingTicketId === ticket.id}
-                    >
-                      {savingTicketId === ticket.id ? "Guardando..." : "Actualizar ticket"}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="admin-ticket-timeline">
-                  <span className="quotes-summary-label">Seguimiento</span>
-                  {(updatesByTicket[ticket.id] || []).length > 0 ? (
-                    <div className="admin-ticket-updates">
-                      {(updatesByTicket[ticket.id] || []).slice(0, 6).map((entry) => (
-                        <article key={entry.id} className="admin-ticket-update">
-                          <div className="admin-ticket-update-head">
-                            <strong>{entry.author_email || entry.author_role || "Sistema"}</strong>
-                            <span>{formatDate(entry.created_at)}</span>
-                          </div>
-                          <p>{entry.message}</p>
-                          <div className="admin-ticket-update-meta">
-                            {entry.previous_status || entry.new_status ? (
-                              <span>
-                                {supportStatusLabel(entry.previous_status || "abierto")} →{" "}
-                                {supportStatusLabel(entry.new_status || "abierto")}
-                              </span>
-                            ) : null}
-                            {entry.is_internal ? <span>Interno</span> : <span>Visible al usuario</span>}
-                          </div>
-                        </article>
-                      ))}
+            {openTickets.length > 0 ? (
+              <div className="support-cards-grid admin-support-grid">
+                {openTickets.map((ticket) => (
+                  <article key={ticket.id} className="support-card admin-ticket-card admin-ticket-card-minimal">
+                    <div className="support-card-head">
+                      <div>
+                        <h3 className="quote-card-title">{ticket.ticket_number || "Sin folio"}</h3>
+                        <p className="quote-card-copy">{ticket.subject || "Ticket sin asunto"}</p>
+                        <p className="quote-card-copy">
+                          {ticket.user_email || "Sin correo"} | {ticket.company_name || "Sin empresa"}
+                        </p>
+                      </div>
+                      <div className="support-card-badges">
+                        <span className={`status-chip ${supportPriorityClass(ticket.priority)}`}>
+                          {supportPriorityLabel(ticket.priority)}
+                        </span>
+                        <span className={`status-chip ${supportStatusClass(ticket.status)}`}>
+                          {supportStatusLabel(ticket.status)}
+                        </span>
+                        <button
+                          type="button"
+                          className="ticket-expand-btn"
+                          onClick={() => toggleTicket(ticket.id)}
+                          aria-expanded={!!expandedTickets[ticket.id]}
+                        >
+                          {expandedTickets[ticket.id] ? "Ocultar" : "Ver"}
+                          <span className={`ticket-expand-arrow ${expandedTickets[ticket.id] ? "is-open" : ""}`}>
+                            v
+                          </span>
+                        </button>
+                      </div>
                     </div>
-                  ) : (
-                    <p className="quote-card-notes">Todavia no hay seguimiento registrado.</p>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <strong>No hay tickets para mostrar.</strong>
-            <span>Ajusta el filtro o espera nuevos tickets de soporte.</span>
-          </div>
-        )}
+
+                    <div className="quote-card-meta admin-ticket-meta-compact">
+                      <div>
+                        <span className="quotes-summary-label">Modulo</span>
+                        <strong>{ticket.module_name || "general"}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Asignado</span>
+                        <strong>{ticket.assigned_email || "Sin asignar"}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Actualizacion</span>
+                        <strong>{formatDate(ticket.updated_at)}</strong>
+                      </div>
+                    </div>
+
+                    {expandedTickets[ticket.id] ? (
+                      <>
+                        <div className="admin-ticket-form">
+                          <div className="form-group">
+                            <label>Estatus</label>
+                            <select
+                              className="quotes-select"
+                              value={ticketForms[ticket.id]?.status || ticket.status || "abierto"}
+                              onChange={(event) => updateTicketForm(ticket.id, "status", event.target.value)}
+                            >
+                              <option value="abierto">Abierto</option>
+                              <option value="en_revision">En revision</option>
+                              <option value="esperando_usuario">Esperando usuario</option>
+                              <option value="resuelto">Resuelto</option>
+                              <option value="cerrado">Cerrado</option>
+                            </select>
+                          </div>
+
+                          <div className="form-group form-group-full">
+                            <label>Respuesta / seguimiento</label>
+                            <textarea
+                              rows="3"
+                              value={ticketForms[ticket.id]?.message || ""}
+                              onChange={(event) => updateTicketForm(ticket.id, "message", event.target.value)}
+                              placeholder="Describe la accion realizada, dudas o resolucion del caso..."
+                            />
+                          </div>
+
+                          <label className="admin-ticket-internal">
+                            <input
+                              type="checkbox"
+                              checked={ticketForms[ticket.id]?.isInternal || false}
+                              onChange={(event) => updateTicketForm(ticket.id, "isInternal", event.target.checked)}
+                            />
+                            Nota interna
+                          </label>
+
+                          <div className="settings-actions">
+                            <button
+                              type="button"
+                              className="primary-btn"
+                              onClick={() => handleTicketUpdate(ticket)}
+                              disabled={savingTicketId === ticket.id}
+                            >
+                              {savingTicketId === ticket.id ? "Guardando..." : "Actualizar ticket"}
+                            </button>
+                          </div>
+                        </div>
+
+                        <TicketTimeline updates={updatesByTicket[ticket.id] || []} />
+                      </>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <strong>No hay tickets abiertos.</strong>
+                <span>La bandeja principal esta despejada por ahora.</span>
+              </div>
+            )}
+          </section>
+
+          <section className="tickets-desk-section">
+            <div className="tickets-desk-section-head">
+              <div>
+                <h3>Tickets pending</h3>
+                <p>{pendingTickets.length} ticket(s) en revision o esperando usuario</p>
+              </div>
+            </div>
+
+            {pendingTickets.length > 0 ? (
+              <div className="support-cards-grid admin-support-grid">
+                {pendingTickets.map((ticket) => (
+                  <article key={ticket.id} className="support-card admin-ticket-card admin-ticket-card-minimal">
+                    <div className="support-card-head">
+                      <div>
+                        <h3 className="quote-card-title">{ticket.ticket_number || "Sin folio"}</h3>
+                        <p className="quote-card-copy">{ticket.subject || "Ticket sin asunto"}</p>
+                        <p className="quote-card-copy">
+                          {ticket.user_email || "Sin correo"} | {ticket.company_name || "Sin empresa"}
+                        </p>
+                      </div>
+                      <div className="support-card-badges">
+                        <span className={`status-chip ${supportPriorityClass(ticket.priority)}`}>
+                          {supportPriorityLabel(ticket.priority)}
+                        </span>
+                        <span className={`status-chip ${supportStatusClass(ticket.status)}`}>
+                          {supportStatusLabel(ticket.status)}
+                        </span>
+                        <button
+                          type="button"
+                          className="ticket-expand-btn"
+                          onClick={() => toggleTicket(ticket.id)}
+                          aria-expanded={!!expandedTickets[ticket.id]}
+                        >
+                          {expandedTickets[ticket.id] ? "Ocultar" : "Ver"}
+                          <span className={`ticket-expand-arrow ${expandedTickets[ticket.id] ? "is-open" : ""}`}>
+                            v
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="quote-card-meta admin-ticket-meta-compact">
+                      <div>
+                        <span className="quotes-summary-label">Modulo</span>
+                        <strong>{ticket.module_name || "general"}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Asignado</span>
+                        <strong>{ticket.assigned_email || "Sin asignar"}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Actualizacion</span>
+                        <strong>{formatDate(ticket.updated_at)}</strong>
+                      </div>
+                    </div>
+
+                    {expandedTickets[ticket.id] ? (
+                      <>
+                        <div className="admin-ticket-form">
+                          <div className="form-group">
+                            <label>Estatus</label>
+                            <select
+                              className="quotes-select"
+                              value={ticketForms[ticket.id]?.status || ticket.status || "abierto"}
+                              onChange={(event) => updateTicketForm(ticket.id, "status", event.target.value)}
+                            >
+                              <option value="abierto">Abierto</option>
+                              <option value="en_revision">En revision</option>
+                              <option value="esperando_usuario">Esperando usuario</option>
+                              <option value="resuelto">Resuelto</option>
+                              <option value="cerrado">Cerrado</option>
+                            </select>
+                          </div>
+
+                          <div className="form-group form-group-full">
+                            <label>Respuesta / seguimiento</label>
+                            <textarea
+                              rows="3"
+                              value={ticketForms[ticket.id]?.message || ""}
+                              onChange={(event) => updateTicketForm(ticket.id, "message", event.target.value)}
+                              placeholder="Describe la accion realizada, dudas o resolucion del caso..."
+                            />
+                          </div>
+
+                          <label className="admin-ticket-internal">
+                            <input
+                              type="checkbox"
+                              checked={ticketForms[ticket.id]?.isInternal || false}
+                              onChange={(event) => updateTicketForm(ticket.id, "isInternal", event.target.checked)}
+                            />
+                            Nota interna
+                          </label>
+
+                          <div className="settings-actions">
+                            <button
+                              type="button"
+                              className="primary-btn"
+                              onClick={() => handleTicketUpdate(ticket)}
+                              disabled={savingTicketId === ticket.id}
+                            >
+                              {savingTicketId === ticket.id ? "Guardando..." : "Actualizar ticket"}
+                            </button>
+                          </div>
+                        </div>
+
+                        <TicketTimeline updates={updatesByTicket[ticket.id] || []} />
+                      </>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <strong>No hay tickets pending.</strong>
+                <span>Cuando un caso pase a revision aparecera aqui.</span>
+              </div>
+            )}
+          </section>
+
+          <section className="tickets-desk-section">
+            <div className="tickets-desk-section-head">
+              <div>
+                <h3>Tickets cerrados</h3>
+                <p>{closedTickets.length} ticket(s) en historial reciente</p>
+              </div>
+            </div>
+
+            {closedTickets.length > 0 ? (
+              <div className="support-cards-grid admin-support-grid">
+                {closedTickets.map((ticket) => (
+                  <article key={ticket.id} className="support-card admin-ticket-card admin-ticket-card-minimal">
+                    <div className="support-card-head">
+                      <div>
+                        <h3 className="quote-card-title">{ticket.ticket_number || "Sin folio"}</h3>
+                        <p className="quote-card-copy">{ticket.subject || "Ticket sin asunto"}</p>
+                        <p className="quote-card-copy">
+                          {ticket.user_email || "Sin correo"} | {ticket.company_name || "Sin empresa"}
+                        </p>
+                      </div>
+                      <div className="support-card-badges">
+                        <span className={`status-chip ${supportPriorityClass(ticket.priority)}`}>
+                          {supportPriorityLabel(ticket.priority)}
+                        </span>
+                        <span className={`status-chip ${supportStatusClass(ticket.status)}`}>
+                          {supportStatusLabel(ticket.status)}
+                        </span>
+                        <button
+                          type="button"
+                          className="ticket-expand-btn"
+                          onClick={() => toggleTicket(ticket.id)}
+                          aria-expanded={!!expandedTickets[ticket.id]}
+                        >
+                          {expandedTickets[ticket.id] ? "Ocultar" : "Ver"}
+                          <span className={`ticket-expand-arrow ${expandedTickets[ticket.id] ? "is-open" : ""}`}>
+                            v
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="quote-card-meta admin-ticket-meta-compact">
+                      <div>
+                        <span className="quotes-summary-label">Modulo</span>
+                        <strong>{ticket.module_name || "general"}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Asignado</span>
+                        <strong>{ticket.assigned_email || "Sin asignar"}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Actualizacion</span>
+                        <strong>{formatDate(ticket.updated_at)}</strong>
+                      </div>
+                    </div>
+
+                    {expandedTickets[ticket.id] ? (
+                      <>
+                        {ticket.resolution_summary ? (
+                          <p className="quote-card-notes">Resolucion: {ticket.resolution_summary}</p>
+                        ) : null}
+
+                        <TicketTimeline updates={updatesByTicket[ticket.id] || []} />
+                      </>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <strong>No hay tickets cerrados para mostrar.</strong>
+                <span>Cuando resuelvas casos apareceran aqui.</span>
+              </div>
+            )}
+          </section>
+        </div>
       </section>
+    </div>
+  );
+}
+
+function TicketTimeline({ updates }) {
+  return (
+    <div className="admin-ticket-timeline">
+      <span className="quotes-summary-label">Seguimiento</span>
+      {updates.length > 0 ? (
+        <div className="admin-ticket-updates">
+          {updates.slice(0, 5).map((entry) => (
+            <article key={entry.id} className="admin-ticket-update">
+              <div className="admin-ticket-update-head">
+                <strong>{entry.author_email || entry.author_role || "Sistema"}</strong>
+                <span>{formatDate(entry.created_at)}</span>
+              </div>
+              <p>{entry.message}</p>
+              <div className="admin-ticket-update-meta">
+                {entry.previous_status || entry.new_status ? (
+                  <span>
+                    {supportStatusLabel(entry.previous_status || "abierto")} a {supportStatusLabel(entry.new_status || "abierto")}
+                  </span>
+                ) : null}
+                {entry.is_internal ? <span>Interno</span> : <span>Visible al usuario</span>}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="quote-card-notes">Todavia no hay seguimiento registrado.</p>
+      )}
     </div>
   );
 }

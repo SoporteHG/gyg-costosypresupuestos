@@ -1813,6 +1813,29 @@
   gap: 8px;
 }
 
+.ticket-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ticket-expand-arrow {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+}
+
+.ticket-expand-arrow.is-open {
+  transform: rotate(180deg);
+}
+
 .admin-hero-card {
   overflow: hidden;
 }
@@ -1844,6 +1867,49 @@
 .admin-ticket-card {
   display: grid;
   gap: 16px;
+}
+
+.tickets-desk-sections {
+  display: grid;
+  gap: 24px;
+}
+
+.tickets-desk-section {
+  display: grid;
+  gap: 16px;
+}
+
+.tickets-desk-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tickets-desk-section-head h3 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 22px;
+}
+
+.tickets-desk-section-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.admin-ticket-card-minimal {
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 18px;
+}
+
+.admin-ticket-meta-compact {
+  padding-top: 4px;
+}
+
+.admin-ticket-meta-compact strong {
+  font-size: 14px;
 }
 
 .admin-ticket-form {
