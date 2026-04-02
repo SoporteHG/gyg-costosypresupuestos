@@ -455,10 +455,25 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setDrawColor(226, 232, 240);
       pdf.line(marginX, topY + 72, pageWidth - marginX, topY + 72);
 
+      const logoBox = {
+        x: marginX,
+        y: topY,
+        width: 124,
+        height: 70,
+      };
+
       if (brandLogo) {
         try {
-          const imageData = await getImageDataUrl(brandLogo);
-          pdf.addImage(imageData, "PNG", marginX, topY, 58, 58);
+          const imageAsset = await getImageDataUrl(brandLogo);
+          const logoSize = fitImageIntoBox(
+            imageAsset.width,
+            imageAsset.height,
+            logoBox.width - 4,
+            logoBox.height - 4
+          );
+          const logoX = logoBox.x + (logoBox.width - logoSize.width) / 2;
+          const logoY = logoBox.y + (logoBox.height - logoSize.height) / 2;
+          pdf.addImage(imageAsset.dataUrl, "PNG", logoX, logoY, logoSize.width, logoSize.height);
         } catch (error) {
           console.error("No se pudo cargar el logo para el PDF:", error);
         }
@@ -466,20 +481,22 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(18);
         pdf.setTextColor(accentColor.r, accentColor.g, accentColor.b);
-        pdf.text(brandName.slice(0, 2).toUpperCase(), marginX + 29, topY + 35, { align: "center" });
+        pdf.text(brandName.slice(0, 2).toUpperCase(), logoBox.x + logoBox.width / 2, topY + 35, {
+          align: "center",
+        });
       }
 
       pdf.setTextColor(15, 23, 42);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(17);
-      pdf.text(brandName, marginX + 74, topY + 20);
+      pdf.text(brandName, marginX + 138, topY + 20);
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8.5);
       pdf.setTextColor(71, 85, 105);
-      pdf.text(companyEmail || "Sin correo", marginX + 74, topY + 38);
-      pdf.text(companyPhone || "Sin telefono", marginX + 74, topY + 52);
+      pdf.text(companyEmail || "Sin correo", marginX + 138, topY + 38);
+      pdf.text(companyPhone || "Sin telefono", marginX + 138, topY + 52);
       if (companyRfc) {
-        pdf.text(`RFC ${companyRfc}`, marginX + 74, topY + 66);
+        pdf.text(`RFC ${companyRfc}`, marginX + 138, topY + 66);
       }
 
       const folioBoxWidth = 160;
@@ -637,7 +654,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       if (signatureUrl) {
         try {
           const signatureData = await getImageDataUrl(signatureUrl);
-          pdf.addImage(signatureData, "PNG", marginX + 8, signatureY - 48, 110, 38);
+          pdf.addImage(signatureData.dataUrl, "PNG", marginX + 8, signatureY - 48, 110, 38);
         } catch (error) {
           console.error("No se pudo cargar la firma para el PDF:", error);
         }
@@ -1048,8 +1065,8 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .sheet { background: #fff; max-width: 920px; margin: 0 auto; }
           .hero { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; padding-bottom: 14px; border-bottom: 1px solid #cbd5e1; }
           .hero-brand { display: flex; gap: 16px; align-items: flex-start; }
-          .hero-logo { width: 62px; height: 62px; background: #fff; border: 1px solid #dbe3ef; display: flex; align-items: center; justify-content: center; overflow: hidden; color: ${brandColor}; font-weight: 800; }
-          .hero-logo img { width: 100%; height: 100%; object-fit: cover; }
+          .hero-logo { width: 138px; height: 76px; padding: 4px; background: #fff; border: 1px solid #dbe3ef; display: flex; align-items: center; justify-content: center; overflow: hidden; color: ${brandColor}; font-weight: 800; box-sizing: border-box; }
+          .hero-logo img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
           .hero h1 { margin: 0 0 6px; font-size: 20px; color: #0f172a; }
           .hero p { margin: 2px 0; color: #475569; font-size: 10px; }
           .folio { min-width: 170px; }
@@ -1195,6 +1212,22 @@ function drawSummaryRow(pdf, label, value, x, y, emphasize) {
   pdf.text(value, x + 158, y, { align: "right" });
 }
 
+function fitImageIntoBox(imageWidth, imageHeight, maxWidth, maxHeight) {
+  if (!imageWidth || !imageHeight) {
+    return {
+      width: maxWidth,
+      height: maxHeight,
+    };
+  }
+
+  const scale = Math.min(maxWidth / imageWidth, maxHeight / imageHeight);
+
+  return {
+    width: imageWidth * scale,
+    height: imageHeight * scale,
+  };
+}
+
 function numberToSpanishWords(value, currencyCode = "MXN") {
   const amount = Number(value || 0);
   const safeAmount = Number.isFinite(amount) ? amount : 0;
@@ -1319,7 +1352,11 @@ function getImageDataUrl(url) {
         return;
       }
       context.drawImage(image, 0, 0);
-      resolve(canvas.toDataURL("image/png"));
+      resolve({
+        dataUrl: canvas.toDataURL("image/png"),
+        width: image.width,
+        height: image.height,
+      });
     };
     image.onerror = () => reject(new Error("No se pudo cargar la imagen."));
     image.src = url;
