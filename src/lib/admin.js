@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 
 const ADMIN_REQUEST_TIMEOUT_MS = 3500;
 const FALLBACK_SUPER_ADMIN_EMAIL = "soportedvr07@gmail.com";
+export const PRESENCE_HEARTBEAT_MS = 60000;
 
 async function withTimeout(promise, label) {
   let timeoutId;
@@ -90,4 +91,51 @@ export async function logPlatformAccess({ user, company }) {
   } catch (_error) {
     // El log es auxiliar; no debe bloquear el acceso si la tabla aun no existe.
   }
+}
+
+export async function touchUserPresence({ user, company }) {
+  if (!user?.id || !company?.id) {
+    return;
+  }
+
+  try {
+    await supabase.rpc("record_user_presence", {
+      p_user_id: user.id,
+      p_user_email: user.email || "",
+      p_company_id: company.id,
+      p_company_name: company.name || "",
+      p_activity_date: getLocalDateStamp(),
+      p_current_path: window.location.pathname || "/",
+      p_seen_at: new Date().toISOString(),
+    });
+  } catch (_error) {
+    // La presencia es auxiliar; no debe bloquear la experiencia si aun no existe el SQL.
+  }
+}
+
+export async function markUserPresenceOffline({ user, company }) {
+  if (!user?.id || !company?.id) {
+    return;
+  }
+
+  try {
+    await supabase
+      .from("live_user_presence")
+      .update({
+        is_online: false,
+        last_seen_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .eq("company_id", company.id);
+  } catch (_error) {
+    // No bloquea cierre de sesion o navegacion.
+  }
+}
+
+function getLocalDateStamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

@@ -12,9 +12,19 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
   const [admins, setAdmins] = useState([]);
   const [logs, setLogs] = useState([]);
   const [tickets, setTickets] = useState([]);
+  const [liveUsers, setLiveUsers] = useState([]);
+  const [dailyUsers, setDailyUsers] = useState([]);
 
   useEffect(() => {
     loadAdminData();
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      loadAdminData();
+    }, 60000);
+
+    return () => window.clearInterval(intervalId);
   }, [currentUser?.id]);
 
   const metrics = useMemo(() => {
@@ -23,6 +33,8 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
     const suspendedCompanies = companies.filter((entry) => entry.status === "suspended");
     const openTickets = tickets.filter((entry) => entry.status === "abierto");
     const criticalTickets = tickets.filter((entry) => entry.priority === "critica" || entry.priority === "alta");
+    const uniqueOnlineCompanies = new Set(liveUsers.map((entry) => entry.company_id).filter(Boolean));
+    const todayMinutes = dailyUsers.reduce((accumulator, entry) => accumulator + Number(entry.minutes_online || 0), 0);
 
     return {
       totalCompanies: companies.length,
@@ -33,8 +45,11 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       accessLogs: logs.length,
       openTickets: openTickets.length,
       criticalTickets: criticalTickets.length,
+      onlineUsers: liveUsers.length,
+      onlineCompanies: uniqueOnlineCompanies.size,
+      todayHours: Math.round((todayMinutes / 60) * 10) / 10,
     };
-  }, [companies, admins, logs, tickets]);
+  }, [companies, admins, logs, tickets, liveUsers, dailyUsers]);
 
   async function withTimeout(promise, label) {
     let timeoutId;
@@ -58,7 +73,10 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       setErrorMessage("");
       setStatusMessage("Consultando empresas, administradores y accesos...");
 
-      const [companiesResult, adminsResult, logsResult, ticketsResult] = await Promise.allSettled([
+      const today = getTodayStamp();
+
+      const [companiesResult, adminsResult, logsResult, ticketsResult, liveUsersResult, dailyUsersResult] =
+        await Promise.allSettled([
         withTimeout(
           supabase
             .from("admin_company_access")
@@ -91,9 +109,34 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
             .limit(20),
           "consultar support_tickets"
         ),
+        withTimeout(
+          supabase
+            .from("live_user_presence")
+            .select("user_id, user_email, company_id, company_name, current_path, started_at, last_seen_at, is_online")
+            .eq("is_online", true)
+            .order("last_seen_at", { ascending: false })
+            .limit(20),
+          "consultar live_user_presence"
+        ),
+        withTimeout(
+          supabase
+            .from("user_daily_presence")
+            .select("user_id, user_email, company_id, company_name, activity_date, minutes_online, last_seen_at")
+            .eq("activity_date", today)
+            .order("minutes_online", { ascending: false })
+            .limit(20),
+          "consultar user_daily_presence"
+        ),
       ]);
 
-      const failureMessage = [companiesResult, adminsResult, logsResult, ticketsResult]
+      const failureMessage = [
+        companiesResult,
+        adminsResult,
+        logsResult,
+        ticketsResult,
+        liveUsersResult,
+        dailyUsersResult,
+      ]
         .filter((result) => result.status === "rejected")
         .map((result) => result.reason?.message)
         .find(Boolean);
@@ -102,11 +145,15 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       const adminsResponse = adminsResult.status === "fulfilled" ? adminsResult.value : null;
       const logsResponse = logsResult.status === "fulfilled" ? logsResult.value : null;
       const ticketsResponse = ticketsResult.status === "fulfilled" ? ticketsResult.value : null;
+      const liveUsersResponse = liveUsersResult.status === "fulfilled" ? liveUsersResult.value : null;
+      const dailyUsersResponse = dailyUsersResult.status === "fulfilled" ? dailyUsersResult.value : null;
 
       if (companiesResponse?.error) throw companiesResponse.error;
       if (adminsResponse?.error) throw adminsResponse.error;
       if (logsResponse?.error) throw logsResponse.error;
       if (ticketsResponse?.error) throw ticketsResponse.error;
+      if (liveUsersResponse?.error) throw liveUsersResponse.error;
+      if (dailyUsersResponse?.error) throw dailyUsersResponse.error;
 
       setCompanies(
         (companiesResponse?.data || []).map((entry) => ({
@@ -121,6 +168,8 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       setAdmins(adminsResponse?.data || []);
       setLogs(logsResponse?.data || []);
       setTickets(ticketsResponse?.data || []);
+      setLiveUsers((liveUsersResponse?.data || []).filter((entry) => isPresenceFresh(entry.last_seen_at)));
+      setDailyUsers(dailyUsersResponse?.data || []);
       setStatusMessage("Panel administrativo actualizado.");
 
       if (failureMessage) {
@@ -235,6 +284,18 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
           <div className="label">Tickets urgentes</div>
           <div className="value">{metrics.criticalTickets}</div>
         </div>
+        <div className="stat-card success">
+          <div className="label">Usuarios en linea</div>
+          <div className="value">{metrics.onlineUsers}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Empresas conectadas</div>
+          <div className="value">{metrics.onlineCompanies}</div>
+        </div>
+        <div className="stat-card warning">
+          <div className="label">Horas online hoy</div>
+          <div className="value">{metrics.todayHours}</div>
+        </div>
       </div>
 
       <div className="dashboard-shell">
@@ -295,6 +356,69 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         </section>
 
         <aside className="dashboard-side-stack">
+          <section className="module-card">
+            <div className="section-head dashboard-side-head">
+              <div>
+                <h2 className="section-title">Conectados ahora</h2>
+                <p className="section-copy">Usuarios y empresas con actividad viva en este momento.</p>
+              </div>
+            </div>
+
+            {liveUsers.length > 0 ? (
+              <div className="dashboard-list">
+                {liveUsers.map((entry) => (
+                  <article key={`${entry.user_id}-${entry.company_id}`} className="dashboard-list-item">
+                    <div>
+                      <strong>{entry.user_email || "Usuario"}</strong>
+                      <p>{entry.company_name || "Sin empresa"}</p>
+                      <p>{entry.current_path || "/"}</p>
+                    </div>
+                    <div className="dashboard-list-meta">
+                      <span className="status-chip status-chip-success">En linea</span>
+                      <span>{formatElapsed(entry.started_at)}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <strong>No hay usuarios activos ahora.</strong>
+                <span>En cuanto alguien use el sistema aparecerá aquí en tiempo real.</span>
+              </div>
+            )}
+          </section>
+
+          <section className="module-card">
+            <div className="section-head dashboard-side-head">
+              <div>
+                <h2 className="section-title">Tiempo online hoy</h2>
+                <p className="section-copy">Acumulado diario aproximado por usuario y empresa.</p>
+              </div>
+            </div>
+
+            {dailyUsers.length > 0 ? (
+              <div className="dashboard-list">
+                {dailyUsers.map((entry) => (
+                  <article key={`${entry.user_id}-${entry.company_id}-${entry.activity_date}`} className="dashboard-list-item">
+                    <div>
+                      <strong>{entry.user_email || "Usuario"}</strong>
+                      <p>{entry.company_name || "Sin empresa"}</p>
+                    </div>
+                    <div className="dashboard-list-meta">
+                      <span>{formatMinutes(entry.minutes_online)}</span>
+                      <span>{formatDate(entry.last_seen_at)}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <strong>No hay tiempo acumulado hoy.</strong>
+                <span>Cuando los usuarios naveguen el sistema verás aquí su uso diario.</span>
+              </div>
+            )}
+          </section>
+
           <section className="module-card">
             <div className="section-head dashboard-side-head">
               <div>
@@ -406,6 +530,37 @@ function formatDate(value) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function getTodayStamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isPresenceFresh(value) {
+  if (!value) return false;
+  return Date.now() - new Date(value).getTime() <= 2 * 60 * 1000;
+}
+
+function formatElapsed(value) {
+  if (!value) return "Sin sesion";
+  const minutes = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes ? `${hours} h ${restMinutes} min` : `${hours} h`;
+}
+
+function formatMinutes(value) {
+  const minutes = Number(value || 0);
+  if (!minutes) return "0 min";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes ? `${hours} h ${restMinutes} min` : `${hours} h`;
 }
 
 function companyStatusLabel(status) {

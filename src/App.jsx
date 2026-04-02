@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { getCurrentCompanyContext } from "./lib/company";
-import { getAdminContext, logPlatformAccess } from "./lib/admin";
+import {
+  getAdminContext,
+  logPlatformAccess,
+  markUserPresenceOffline,
+  PRESENCE_HEARTBEAT_MS,
+  touchUserPresence,
+} from "./lib/admin";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import AppLayout from "./components/layout/AppLayout";
@@ -119,6 +125,35 @@ function App() {
       user: session.user,
       company: companyContext.company,
     });
+  }, [session?.user, companyContext?.company]);
+
+  useEffect(() => {
+    const user = session?.user;
+    const company = companyContext?.company;
+
+    if (!user?.id || !company?.id) {
+      return undefined;
+    }
+
+    touchUserPresence({ user, company });
+
+    const intervalId = window.setInterval(() => {
+      touchUserPresence({ user, company });
+    }, PRESENCE_HEARTBEAT_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        touchUserPresence({ user, company });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      markUserPresenceOffline({ user, company });
+    };
   }, [session?.user, companyContext?.company]);
 
   if (session === undefined) {
