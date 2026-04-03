@@ -2081,6 +2081,120 @@
 }
 
 @media (max-width: 768px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+    padding: 16px 14px 12px;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-brand {
+    margin-bottom: 14px;
+  }
+
+  .sidebar nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .nav-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 10px 12px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+
+  .main {
+    min-width: 0;
+  }
+
+  .topbar {
+    height: auto;
+    padding: 14px;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .topbar-brand-block {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .topbar-company-switch {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .theme-switch,
+  .user,
+  .topbar-clock,
+  .topbar-actions .primary-btn {
+    min-height: 44px;
+  }
+
+  .topbar-clock {
+    min-width: 0;
+    align-items: flex-start;
+  }
+
+  .content {
+    padding: 16px 14px 24px;
+  }
+
+  .page-header h1,
+  .page-header h2 {
+    font-size: 26px;
+  }
+
+  .quotes-top-grid,
+  .quotes-top-grid-wide,
+  .quotes-client-summary,
+  .quotes-client-summary-extended,
+  .dashboard-metrics-grid,
+  .dashboard-shell,
+  .dashboard-activity-grid,
+  .clientes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quotes-client-address {
+    grid-column: auto;
+  }
+
+  .dashboard-list-item,
+  .dashboard-kpi-row,
+  .dashboard-hero,
+  .branding-preview-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dashboard-list-meta {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .stat-card {
+    padding: 18px;
+  }
+
   .providers-form-grid,
   .vendors-form-grid,
   .inventory-form-grid,
