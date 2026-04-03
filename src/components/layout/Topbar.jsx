@@ -78,23 +78,11 @@ export default function Topbar({
 
   return (
     <header className="topbar">
-      <div>
-        <h3>{companyName}</h3>
-        <p className="topbar-copy">Portal de costos y presupuestos</p>
-      </div>
-      <div className="topbar-actions">
-        {logoutError ? <p className="topbar-error">{logoutError}</p> : null}
-        <button
-          type="button"
-          className={`theme-switch ${themeMode === "dark" ? "is-active" : ""}`}
-          onClick={onToggleTheme}
-          aria-label={themeMode === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-        >
-          <span className="theme-switch-track">
-            <span className="theme-switch-thumb" />
-          </span>
-          <span className="theme-switch-label">{themeMode === "dark" ? "Dark" : "Light"}</span>
-        </button>
+      <div className="topbar-brand-block">
+        <div>
+          <h3>{companyName}</h3>
+          <p className="topbar-copy">Portal de costos y presupuestos</p>
+        </div>
         {companyOptions.length > 1 ? (
           <label className="topbar-company-switch">
             <span className="topbar-company-switch-label">Empresa</span>
@@ -111,6 +99,20 @@ export default function Topbar({
             </select>
           </label>
         ) : null}
+      </div>
+      <div className="topbar-actions">
+        {logoutError ? <p className="topbar-error">{logoutError}</p> : null}
+        <button
+          type="button"
+          className={`theme-switch ${themeMode === "dark" ? "is-active" : ""}`}
+          onClick={onToggleTheme}
+          aria-label={themeMode === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+        >
+          <span className="theme-switch-track">
+            <span className="theme-switch-thumb" />
+          </span>
+          <span className="theme-switch-label">{themeMode === "dark" ? "Dark" : "Light"}</span>
+        </button>
         <div className="user">{userEmail || "Usuario"}</div>
         <div className="topbar-clock" aria-label={`Fecha ${formattedDate} y hora ${formattedTime}`}>
           <span className="topbar-clock-date">{formattedDate}</span>

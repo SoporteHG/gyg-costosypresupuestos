@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 function GoogleIcon() {
@@ -20,6 +20,27 @@ export default function LoginPage() {
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [message, setMessage] = useState("");
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 1280 : window.innerWidth
+  );
+
+  useEffect(() => {
+    function handleResize() {
+      setViewportWidth(window.innerWidth);
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const isTablet = viewportWidth <= 1100;
+  const isMobile = viewportWidth <= 768;
+  const isSmallMobile = viewportWidth <= 540;
+
+  const styles = useMemo(
+    () => buildResponsiveStyles({ isTablet, isMobile, isSmallMobile }),
+    [isTablet, isMobile, isSmallMobile]
+  );
 
   async function handleLogin(event) {
     event.preventDefault();
@@ -95,38 +116,38 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={page}>
-      <div style={backgroundGlow} />
-      <div style={shell}>
-        <section style={heroPanel}>
-          <div style={heroBadge}>Portal empresarial</div>
-          <h1 style={heroTitle}>Gestion Inteligente de Costos y Presupuestos</h1>
-          <p style={heroCopy}>Control total de operaciones en una sola plataforma.</p>
+    <div style={styles.page}>
+      <div style={styles.backgroundGlow} />
+      <div style={styles.shell}>
+        <section style={styles.heroPanel}>
+          <div style={styles.heroBadge}>Portal empresarial</div>
+          <h1 style={styles.heroTitle}>Gestion Inteligente de Costos y Presupuestos</h1>
+          <p style={styles.heroCopy}>Control total de operaciones en una sola plataforma.</p>
 
-          <div style={heroFeatureList}>
-            <div style={featureCard}>
-              <strong style={featureTitle}>Operacion comercial</strong>
-              <span style={featureCopy}>Cotiza, vende y da seguimiento sin salir del sistema.</span>
+          <div style={styles.heroFeatureList}>
+            <div style={styles.featureCard}>
+              <strong style={styles.featureTitle}>Operacion comercial</strong>
+              <span style={styles.featureCopy}>Cotiza, vende y da seguimiento sin salir del sistema.</span>
             </div>
-            <div style={featureCard}>
-              <strong style={featureTitle}>Identidad por empresa</strong>
-              <span style={featureCopy}>Cada sesion trabaja con su propia marca, clientes y catalogo.</span>
+            <div style={styles.featureCard}>
+              <strong style={styles.featureTitle}>Identidad por empresa</strong>
+              <span style={styles.featureCopy}>Cada sesion trabaja con su propia marca, clientes y catalogo.</span>
             </div>
           </div>
 
-          <div style={heroFooter}>Creado por GyG Soluciones. Derechos reservados ®</div>
+          <div style={styles.heroFooter}>Creado por GyG Soluciones. Derechos reservados ®</div>
         </section>
 
-        <form onSubmit={handleLogin} style={card}>
-          <div style={brandText}>Acceso seguro</div>
-          <h2 style={title}>{mode === "register" ? "Crear cuenta" : "Iniciar sesion"}</h2>
-          <p style={subtitle}>
+        <form onSubmit={handleLogin} style={styles.card}>
+          <div style={styles.brandText}>Acceso seguro</div>
+          <h2 style={styles.title}>{mode === "register" ? "Crear cuenta" : "Iniciar sesion"}</h2>
+          <p style={styles.subtitle}>
             {mode === "register"
               ? "Registra un nuevo acceso con correo y contrasena."
               : "Ingresa con Google o con tu correo y contrasena."}
           </p>
 
-          <div style={modeSwitch}>
+          <div style={styles.modeSwitch}>
             <button
               type="button"
               onClick={() => {
@@ -134,7 +155,7 @@ export default function LoginPage() {
                 setMessage("");
               }}
               style={{
-                ...modeButton,
+                ...styles.modeButton,
                 ...(mode === "login" ? modeButtonActive : {}),
               }}
             >
@@ -147,7 +168,7 @@ export default function LoginPage() {
                 setMessage("");
               }}
               style={{
-                ...modeButton,
+                ...styles.modeButton,
                 ...(mode === "register" ? modeButtonActive : {}),
               }}
             >
@@ -155,52 +176,52 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <button type="button" onClick={loginWithGoogle} style={btnGoogle} disabled={loadingGoogle}>
+          <button type="button" onClick={loginWithGoogle} style={styles.btnGoogle} disabled={loadingGoogle}>
             <GoogleIcon />
             <span>{loadingGoogle ? "Conectando..." : "Continuar con Google"}</span>
           </button>
 
-          <div style={dividerWrap}>
-            <span style={line} />
-            <span style={dividerText}>o con correo</span>
-            <span style={line} />
+          <div style={styles.dividerWrap}>
+            <span style={styles.line} />
+            <span style={styles.dividerText}>o con correo</span>
+            <span style={styles.line} />
           </div>
 
-          <label style={fieldLabel}>Correo electronico</label>
+          <label style={styles.fieldLabel}>Correo electronico</label>
           <input
             type="email"
             placeholder="tu@empresa.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            style={input}
+            style={styles.input}
           />
 
-          <label style={fieldLabel}>Contrasena</label>
+          <label style={styles.fieldLabel}>Contrasena</label>
           <input
             type="password"
             placeholder="Tu contrasena"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
-            style={input}
+            style={styles.input}
           />
 
           {mode === "register" ? (
             <>
-              <label style={fieldLabel}>Confirmar contrasena</label>
+              <label style={styles.fieldLabel}>Confirmar contrasena</label>
               <input
                 type="password"
                 placeholder="Repite tu contrasena"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
-                style={input}
+                style={styles.input}
               />
             </>
           ) : null}
 
-          <button type="submit" style={btnPrimary} disabled={loadingEmail}>
+          <button type="submit" style={styles.btnPrimary} disabled={loadingEmail}>
             {loadingEmail
               ? mode === "register"
                 ? "Creando cuenta..."
@@ -210,11 +231,141 @@ export default function LoginPage() {
                 : "Ingresar con correo"}
           </button>
 
-          {message ? <p style={msg}>{message}</p> : null}
+          {message ? <p style={styles.msg}>{message}</p> : null}
         </form>
       </div>
     </div>
   );
+}
+
+function buildResponsiveStyles({ isTablet, isMobile, isSmallMobile }) {
+  return {
+    page: {
+      ...page,
+      alignItems: isMobile ? "flex-start" : "center",
+      padding: isSmallMobile ? "18px 14px" : isMobile ? "22px 18px" : isTablet ? "28px" : "32px",
+      background: isMobile
+        ? "linear-gradient(145deg, rgba(15, 23, 42, 0.76) 0%, rgba(15, 23, 42, 0.62) 46%, rgba(30, 64, 175, 0.24) 100%), url('/login-bg.jpg') 72% center/cover no-repeat"
+        : isTablet
+          ? "linear-gradient(120deg, rgba(15, 23, 42, 0.66) 0%, rgba(15, 23, 42, 0.48) 38%, rgba(30, 64, 175, 0.2) 100%), url('/login-bg.jpg') 108% center/cover no-repeat"
+          : page.background,
+    },
+    backgroundGlow: {
+      ...backgroundGlow,
+      width: isMobile ? "300px" : isTablet ? "420px" : backgroundGlow.width,
+      height: isMobile ? "300px" : isTablet ? "420px" : backgroundGlow.height,
+      top: isMobile ? "-70px" : backgroundGlow.top,
+      right: isMobile ? "-80px" : backgroundGlow.right,
+    },
+    shell: {
+      ...shell,
+      width: "min(980px, 100%)",
+      gridTemplateColumns: isMobile ? "1fr" : isTablet ? "minmax(0, 1fr)" : shell.gridTemplateColumns,
+      gap: isMobile ? "14px" : isTablet ? "16px" : shell.gap,
+      marginLeft: 0,
+      marginTop: isMobile ? "8px" : 0,
+    },
+    heroPanel: {
+      ...heroPanel,
+      minHeight: isTablet ? "auto" : heroPanel.minHeight,
+      padding: isSmallMobile ? "18px" : isMobile ? "20px" : heroPanel.padding,
+      borderRadius: isMobile ? "24px" : heroPanel.borderRadius,
+      order: isMobile ? 2 : 1,
+    },
+    heroBadge: heroBadge,
+    heroTitle: {
+      ...heroTitle,
+      maxWidth: isMobile ? "100%" : heroTitle.maxWidth,
+      fontSize: isSmallMobile ? "28px" : isMobile ? "31px" : heroTitle.fontSize,
+    },
+    heroCopy: {
+      ...heroCopy,
+      maxWidth: isMobile ? "100%" : heroCopy.maxWidth,
+      fontSize: isMobile ? "13px" : heroCopy.fontSize,
+    },
+    heroFeatureList: {
+      ...heroFeatureList,
+      gap: isMobile ? "8px" : heroFeatureList.gap,
+    },
+    featureCard: {
+      ...featureCard,
+      padding: isMobile ? "10px 12px" : featureCard.padding,
+    },
+    featureTitle: {
+      ...featureTitle,
+      fontSize: isMobile ? "13px" : featureTitle.fontSize,
+    },
+    featureCopy: {
+      ...featureCopy,
+      fontSize: isMobile ? "12px" : featureCopy.fontSize,
+    },
+    heroFooter: {
+      ...heroFooter,
+      fontSize: isMobile ? "12px" : heroFooter.fontSize,
+      marginTop: isMobile ? "4px" : heroFooter.marginTop,
+    },
+    card: {
+      ...card,
+      width: "100%",
+      maxWidth: isMobile ? "100%" : isTablet ? "420px" : card.maxWidth,
+      minHeight: isTablet ? "auto" : card.minHeight,
+      padding: isSmallMobile ? "18px" : isMobile ? "20px" : card.padding,
+      borderRadius: isMobile ? "24px" : card.borderRadius,
+      order: 1,
+      justifySelf: isMobile || isTablet ? "stretch" : "end",
+    },
+    brandText: {
+      ...brandText,
+      fontSize: isMobile ? "12px" : brandText.fontSize,
+    },
+    title: {
+      ...title,
+      fontSize: isSmallMobile ? "22px" : isMobile ? "24px" : title.fontSize,
+    },
+    subtitle: {
+      ...subtitle,
+      fontSize: isMobile ? "12px" : subtitle.fontSize,
+    },
+    fieldLabel: {
+      ...fieldLabel,
+      fontSize: isMobile ? "12px" : fieldLabel.fontSize,
+    },
+    input: {
+      ...input,
+      padding: isMobile ? "13px 14px" : input.padding,
+      fontSize: isMobile ? "13px" : input.fontSize,
+    },
+    btnPrimary: {
+      ...btnPrimary,
+      padding: isMobile ? "12px 14px" : btnPrimary.padding,
+      fontSize: isMobile ? "13px" : btnPrimary.fontSize,
+    },
+    btnGoogle: {
+      ...btnGoogle,
+      padding: isMobile ? "12px 14px" : btnGoogle.padding,
+      fontSize: isMobile ? "13px" : btnGoogle.fontSize,
+    },
+    dividerWrap: dividerWrap,
+    line: line,
+    dividerText: {
+      ...dividerText,
+      fontSize: isMobile ? "12px" : dividerText.fontSize,
+    },
+    msg: {
+      ...msg,
+      fontSize: isMobile ? "13px" : msg.fontSize,
+      padding: isMobile ? "11px 12px" : msg.padding,
+    },
+    modeSwitch: {
+      ...modeSwitch,
+      gap: isMobile ? "6px" : modeSwitch.gap,
+    },
+    modeButton: {
+      ...modeButton,
+      padding: isMobile ? "10px" : modeButton.padding,
+      fontSize: isMobile ? "12px" : modeButton.fontSize,
+    },
+  };
 }
 
 const page = {
@@ -227,7 +378,7 @@ const page = {
   background:
     "linear-gradient(120deg, rgba(15, 23, 42, 0.62) 0%, rgba(15, 23, 42, 0.46) 34%, rgba(30, 64, 175, 0.2) 100%), url('/login-bg.jpg') 122% center/cover no-repeat",
   overflow: "hidden",
-  fontFamily: "\"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif",
+  fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
 };
 
 const backgroundGlow = {
@@ -284,7 +435,7 @@ const heroTitle = {
   lineHeight: 1.08,
   fontWeight: 900,
   maxWidth: "360px",
-  fontFamily: "\"Georgia\", \"Times New Roman\", serif",
+  fontFamily: '"Georgia", "Times New Roman", serif',
   letterSpacing: "-0.03em",
 };
 
@@ -294,7 +445,7 @@ const heroCopy = {
   color: "rgba(255, 255, 255, 0.82)",
   fontSize: "14px",
   lineHeight: 1.45,
-  fontFamily: "\"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif",
+  fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
 };
 
 const heroFeatureList = {
@@ -317,7 +468,7 @@ const featureCard = {
 const featureTitle = {
   fontSize: "14px",
   fontWeight: 800,
-  fontFamily: "\"Georgia\", \"Times New Roman\", serif",
+  fontFamily: '"Georgia", "Times New Roman", serif',
 };
 
 const featureCopy = {
@@ -363,7 +514,7 @@ const title = {
   color: "#ffffff",
   fontSize: "25px",
   lineHeight: 1.1,
-  fontFamily: "\"Georgia\", \"Times New Roman\", serif",
+  fontFamily: '"Georgia", "Times New Roman", serif',
   letterSpacing: "-0.02em",
 };
 
@@ -372,7 +523,7 @@ const subtitle = {
   color: "rgba(255, 255, 255, 0.82)",
   fontSize: "13px",
   lineHeight: 1.5,
-  fontFamily: "\"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif",
+  fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
 };
 
 const fieldLabel = {
