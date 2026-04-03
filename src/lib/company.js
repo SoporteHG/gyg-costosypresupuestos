@@ -132,6 +132,60 @@ export async function getCurrentCompanyContext(userId, preferredCompanyId = null
     throw new Error("Tu acceso ha vencido. Contacta al administrador para renovar tu plan.");
   }
 
+  let subscription = null;
+
+  try {
+    const { data: subscriptionData, error: subscriptionError } = await withTimeout(
+      supabase
+        .from("company_subscriptions")
+        .select(
+          "company_id, plan_code, plan_name, price_mxn, status, trial_ends_at, starts_at, expires_at, grace_until, notes, updated_at"
+        )
+        .eq("company_id", company.id)
+        .maybeSingle(),
+      "consultar company_subscriptions"
+    );
+
+    if (subscriptionError) {
+      const normalizedMessage = String(subscriptionError.message || "").toLowerCase();
+      if (
+        !normalizedMessage.includes("does not exist") &&
+        !normalizedMessage.includes("could not find") &&
+        !normalizedMessage.includes("schema cache")
+      ) {
+        throw subscriptionError;
+      }
+    } else {
+      subscription = subscriptionData || null;
+    }
+  } catch (error) {
+    const normalizedMessage = String(error.message || "").toLowerCase();
+    if (
+      !normalizedMessage.includes("does not exist") &&
+      !normalizedMessage.includes("could not find") &&
+      !normalizedMessage.includes("schema cache")
+    ) {
+      throw error;
+    }
+  }
+
+  const subscriptionStatus = String(subscription?.status || "active").toLowerCase();
+  const expiresAt = subscription?.expires_at ? new Date(subscription.expires_at).getTime() : null;
+  const graceUntil = subscription?.grace_until ? new Date(subscription.grace_until).getTime() : null;
+  const isExpiredByDate =
+    expiresAt &&
+    !Number.isNaN(expiresAt) &&
+    Date.now() > expiresAt &&
+    (!graceUntil || Number.isNaN(graceUntil) || Date.now() > graceUntil);
+
+  if (subscriptionStatus === "suspended") {
+    throw new Error("Tu plan esta suspendido. Contacta al administrador para reactivar el acceso.");
+  }
+
+  if (subscriptionStatus === "expired" || isExpiredByDate) {
+    throw new Error("Tu plan ha vencido. Contacta al administrador para renovar tu acceso.");
+  }
+
   const { data: branding, error: brandingError } = await withTimeout(
     supabase
       .from("company_branding")
@@ -149,6 +203,7 @@ export async function getCurrentCompanyContext(userId, preferredCompanyId = null
     companyId: company.id,
     company,
     branding: branding || null,
+    subscription,
     availableCompanies,
   };
 

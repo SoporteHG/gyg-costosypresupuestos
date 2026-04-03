@@ -388,6 +388,25 @@
   gap: 12px;
 }
 
+.dashboard-plan-card {
+  margin-bottom: 18px;
+}
+
+.dashboard-plan-card-warning {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+}
+
+.dashboard-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-plan-grid strong {
+  color: #0f172a;
+}
+
 .dashboard-shortcut-tile {
   display: grid;
   gap: 4px;
@@ -1194,6 +1213,7 @@
 
   .quotes-top-grid,
   .quotes-top-grid-wide,
+  .dashboard-plan-grid,
   .quotes-client-summary,
   .quotes-client-summary-extended,
   .quote-card-meta {
@@ -1711,6 +1731,56 @@
   margin-top: 1.5rem;
 }
 
+.admin-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.admin-plan-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.admin-plan-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-plan-card-head h3 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 20px;
+}
+
+.admin-plan-card-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.admin-plan-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-plan-meta strong {
+  color: #0f172a;
+}
+
+.admin-plan-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .admin-checkbox-field {
   grid-column: 1 / -1;
   display: inline-flex;
@@ -2074,6 +2144,8 @@
   .inventory-form-grid,
   .inventory-product-chip,
   .admin-hero-grid,
+  .admin-plan-meta,
+  .admin-plan-form-grid,
   .support-form-grid,
   .support-help-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2200,6 +2272,8 @@
   .inventory-form-grid,
   .inventory-product-chip,
   .admin-hero-grid,
+  .admin-plan-meta,
+  .admin-plan-form-grid,
   .support-form-grid,
   .support-help-strip {
     grid-template-columns: 1fr;
@@ -2210,6 +2284,10 @@
   }
 
   .support-card-head {
+    flex-direction: column;
+  }
+
+  .admin-plan-card-head {
     flex-direction: column;
   }
 
@@ -2401,6 +2479,20 @@
   color: #cbd5e1;
 }
 
+.app-theme-dark .admin-plan-card {
+  background: linear-gradient(135deg, #111827 0%, #172033 100%);
+  border-color: #243041;
+}
+
+.app-theme-dark .admin-plan-card-head h3,
+.app-theme-dark .admin-plan-meta strong {
+  color: #f8fafc;
+}
+
+.app-theme-dark .admin-plan-card-head p {
+  color: #94a3b8;
+}
+
 .app-theme-dark .topbar-clock-date {
   color: #94a3b8;
 }
@@ -2449,4 +2541,13 @@
 
 .app-theme-dark .table tr:hover td {
   background: #172033;
+}
+
+.app-theme-dark .dashboard-plan-card-warning {
+  border-color: #92400e;
+  background: linear-gradient(135deg, #1f2937 0%, #172033 100%);
+}
+
+.app-theme-dark .dashboard-plan-grid strong {
+  color: #f8fafc;
 }

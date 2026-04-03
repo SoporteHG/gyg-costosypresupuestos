@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase";
 
 const REQUEST_TIMEOUT_MS = 10000;
 
-export default function DashboardPage({ currentUser, companyId, company, branding }) {
+export default function DashboardPage({ currentUser, companyId, company, branding, subscription }) {
   const companyName = branding?.business_name || company?.name || "Tu empresa";
   const accentColor = branding?.primary_color || company?.primary_color || "#1d4ed8";
   const logoUrl = branding?.logo_url || company?.logo_url || "";
@@ -66,6 +66,31 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
       openSupportTickets: supportTickets.filter((entry) => entry.status === "abierto" || entry.status === "en_revision").length,
     };
   }, [clientes, productos, cotizaciones, ventas, outOfStockProducts, supportTickets]);
+
+  const subscriptionSummary = useMemo(() => {
+    if (!subscription) {
+      return {
+        planLabel: "Sin plan configurado",
+        statusLabel: "Pendiente",
+        expiryLabel: "Configuralo en Super Admin",
+        paymentLabel: "Sin forma de pago",
+        remainingLabel: "Sin fecha",
+        isNearExpiry: false,
+      };
+    }
+
+    const expiresAt = subscription.expires_at || subscription.trial_ends_at;
+    const remainingDays = calculateRemainingDays(expiresAt);
+
+    return {
+      planLabel: planLabel(subscription.plan_code),
+      statusLabel: subscriptionStatusLabel(subscription.status),
+      expiryLabel: expiresAt ? formatDate(expiresAt) : "Sin fecha",
+      paymentLabel: paymentMethodLabel(subscription.payment_method),
+      remainingLabel: remainingDays == null ? "Sin vencimiento" : `${remainingDays} dia(s) restantes`,
+      isNearExpiry: remainingDays != null && remainingDays <= 5,
+    };
+  }, [subscription]);
 
   async function withTimeout(promise, label) {
     let timeoutId;
@@ -215,6 +240,42 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
           <strong>{formatCurrency(metrics.salesTodayAmount)}</strong>
         </div>
       </div>
+
+      <section className={`module-card dashboard-plan-card ${subscriptionSummary.isNearExpiry ? "dashboard-plan-card-warning" : ""}`}>
+        <div className="section-head dashboard-side-head">
+          <div>
+            <h2 className="section-title">Plan y renovacion</h2>
+            <p className="section-copy">Consulta tu tiempo restante y la forma de pago registrada para renovar.</p>
+          </div>
+        </div>
+
+        <div className="dashboard-plan-grid">
+          <div>
+            <span className="quotes-summary-label">Plan actual</span>
+            <strong>{subscriptionSummary.planLabel}</strong>
+          </div>
+          <div>
+            <span className="quotes-summary-label">Estado</span>
+            <strong>{subscriptionSummary.statusLabel}</strong>
+          </div>
+          <div>
+            <span className="quotes-summary-label">Vence</span>
+            <strong>{subscriptionSummary.expiryLabel}</strong>
+          </div>
+          <div>
+            <span className="quotes-summary-label">Tiempo restante</span>
+            <strong>{subscriptionSummary.remainingLabel}</strong>
+          </div>
+          <div>
+            <span className="quotes-summary-label">Forma de pago</span>
+            <strong>{subscriptionSummary.paymentLabel}</strong>
+          </div>
+          <div>
+            <span className="quotes-summary-label">Renovacion</span>
+            <strong>Solicitala por transferencia o Mercado Pago</strong>
+          </div>
+        </div>
+      </section>
 
       {errorMessage ? <p className="form-message form-message-error">{errorMessage}</p> : null}
 
@@ -500,4 +561,29 @@ function supportStatusClass(status) {
   if (status === "resuelto" || status === "cerrado") return "status-chip-success";
   if (status === "en_revision") return "status-chip";
   return "status-chip-warning";
+}
+
+function calculateRemainingDays(value) {
+  if (!value) return null;
+  const expiresAt = new Date(value).getTime();
+  if (Number.isNaN(expiresAt)) return null;
+  return Math.max(0, Math.ceil((expiresAt - Date.now()) / (1000 * 60 * 60 * 24)));
+}
+
+function planLabel(planCode) {
+  if (planCode === "monthly") return "Mensual 399 MXN";
+  if (planCode === "yearly") return "Anual 3,600 MXN";
+  return "Prueba gratis";
+}
+
+function subscriptionStatusLabel(status) {
+  if (status === "suspended") return "Suspendido";
+  if (status === "expired") return "Vencido";
+  return "Activo";
+}
+
+function paymentMethodLabel(value) {
+  if (value === "mercado_pago") return "Mercado Pago";
+  if (value === "transferencia") return "Transferencia";
+  return "Sin definir";
 }

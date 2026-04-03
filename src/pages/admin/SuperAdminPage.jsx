@@ -4,6 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
 const REQUEST_TIMEOUT_MS = 8000;
+const PLAN_PRICES = {
+  trial: 0,
+  monthly: 399,
+  yearly: 3600,
+};
 
 export default function SuperAdminPage({ currentUser, adminContext }) {
   const navigate = useNavigate();
@@ -21,12 +26,15 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
   const [admins, setAdmins] = useState([]);
   const [logs, setLogs] = useState([]);
   const [tickets, setTickets] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [liveUsers, setLiveUsers] = useState([]);
   const [dailyUsers, setDailyUsers] = useState([]);
   const [usageReport, setUsageReport] = useState([]);
   const [ticketUpdates, setTicketUpdates] = useState([]);
   const [ticketForms, setTicketForms] = useState({});
+  const [subscriptionForms, setSubscriptionForms] = useState({});
   const [savingTicketId, setSavingTicketId] = useState("");
+  const [savingSubscriptionId, setSavingSubscriptionId] = useState("");
 
   useEffect(() => {
     loadAdminData();
@@ -40,12 +48,51 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
     return () => window.clearInterval(intervalId);
   }, [currentUser?.id]);
 
+  const updatesByTicket = useMemo(() => {
+    return ticketUpdates.reduce((accumulator, entry) => {
+      if (!accumulator[entry.ticket_id]) {
+        accumulator[entry.ticket_id] = [];
+      }
+      accumulator[entry.ticket_id].push(entry);
+      return accumulator;
+    }, {});
+  }, [ticketUpdates]);
+
+  const subscriptionRows = useMemo(() => {
+    const subscriptionsByCompany = new Map(subscriptions.map((entry) => [entry.company_id, entry]));
+    return companies.map((company) => {
+      const subscription = subscriptionsByCompany.get(company.id);
+      return (
+        subscription || {
+          company_id: company.id,
+          company_name: company.name,
+          owner_email: company.owner_email,
+          plan_code: "trial",
+          plan_name: "Prueba gratis",
+          price_mxn: 0,
+          payment_method: "transferencia",
+          status: "active",
+          trial_ends_at: null,
+          starts_at: null,
+          expires_at: null,
+          grace_until: null,
+          notes: "",
+          updated_at: company.created_at,
+        }
+      );
+    });
+  }, [companies, subscriptions]);
+
   const metrics = useMemo(() => {
     const pendingCompanies = companies.filter((entry) => entry.status === "pending");
     const activeCompanies = companies.filter((entry) => entry.status === "active");
     const suspendedCompanies = companies.filter((entry) => entry.status === "suspended");
     const openTickets = tickets.filter((entry) => entry.status === "abierto");
     const criticalTickets = tickets.filter((entry) => entry.priority === "critica" || entry.priority === "alta");
+    const trialCompanies = subscriptionRows.filter((entry) => entry.plan_code === "trial");
+    const monthlyCompanies = subscriptionRows.filter((entry) => entry.plan_code === "monthly");
+    const yearlyCompanies = subscriptionRows.filter((entry) => entry.plan_code === "yearly");
+    const expiredPlans = subscriptionRows.filter((entry) => isSubscriptionExpired(entry));
     const uniqueOnlineCompanies = new Set(liveUsers.map((entry) => entry.company_id).filter(Boolean));
     const todayMinutes = dailyUsers.reduce((accumulator, entry) => accumulator + Number(entry.minutes_online || 0), 0);
 
@@ -58,21 +105,15 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       accessLogs: logs.length,
       openTickets: openTickets.length,
       criticalTickets: criticalTickets.length,
+      trialCompanies: trialCompanies.length,
+      monthlyCompanies: monthlyCompanies.length,
+      yearlyCompanies: yearlyCompanies.length,
+      expiredPlans: expiredPlans.length,
       onlineUsers: liveUsers.length,
       onlineCompanies: uniqueOnlineCompanies.size,
       todayHours: Math.round((todayMinutes / 60) * 10) / 10,
     };
-  }, [companies, admins, logs, tickets, liveUsers, dailyUsers]);
-
-  const updatesByTicket = useMemo(() => {
-    return ticketUpdates.reduce((accumulator, entry) => {
-      if (!accumulator[entry.ticket_id]) {
-        accumulator[entry.ticket_id] = [];
-      }
-      accumulator[entry.ticket_id].push(entry);
-      return accumulator;
-    }, {});
-  }, [ticketUpdates]);
+  }, [companies, admins, logs, tickets, subscriptionRows, liveUsers, dailyUsers]);
 
   async function withTimeout(promise, label) {
     let timeoutId;
@@ -103,6 +144,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         adminsResult,
         logsResult,
         ticketsResult,
+        subscriptionsResult,
         liveUsersResult,
         dailyUsersResult,
         usageReportResult,
@@ -142,6 +184,16 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
               .order("created_at", { ascending: false })
               .limit(20),
             "consultar support_tickets"
+          ),
+          withTimeout(
+            supabase
+              .from("company_subscriptions")
+              .select(
+                "company_id, plan_code, plan_name, price_mxn, payment_method, status, trial_ends_at, starts_at, expires_at, grace_until, notes, updated_at"
+              )
+              .order("updated_at", { ascending: false })
+              .limit(100),
+            "consultar company_subscriptions"
           ),
           withTimeout(
             supabase
@@ -188,6 +240,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         adminsResult,
         logsResult,
         ticketsResult,
+        subscriptionsResult,
         liveUsersResult,
         dailyUsersResult,
         usageReportResult,
@@ -201,6 +254,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       const adminsResponse = adminsResult.status === "fulfilled" ? adminsResult.value : null;
       const logsResponse = logsResult.status === "fulfilled" ? logsResult.value : null;
       const ticketsResponse = ticketsResult.status === "fulfilled" ? ticketsResult.value : null;
+      const subscriptionsResponse = subscriptionsResult.status === "fulfilled" ? subscriptionsResult.value : null;
       const liveUsersResponse = liveUsersResult.status === "fulfilled" ? liveUsersResult.value : null;
       const dailyUsersResponse = dailyUsersResult.status === "fulfilled" ? dailyUsersResult.value : null;
       const usageReportResponse = usageReportResult.status === "fulfilled" ? usageReportResult.value : null;
@@ -210,6 +264,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       if (adminsResponse?.error) throw adminsResponse.error;
       if (logsResponse?.error) throw logsResponse.error;
       if (ticketsResponse?.error) throw ticketsResponse.error;
+      if (subscriptionsResponse?.error) throw subscriptionsResponse.error;
       if (liveUsersResponse?.error) throw liveUsersResponse.error;
       if (dailyUsersResponse?.error) throw dailyUsersResponse.error;
       if (usageReportResponse?.error) throw usageReportResponse.error;
@@ -228,6 +283,7 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       setAdmins(adminsResponse?.data || []);
       setLogs(logsResponse?.data || []);
       setTickets(ticketsResponse?.data || []);
+      setSubscriptions((subscriptionsResponse?.data || []).map((entry) => normalizeSubscriptionEntry(entry, companiesResponse?.data || [])));
       setLiveUsers((liveUsersResponse?.data || []).filter((entry) => isPresenceFresh(entry.last_seen_at)));
       setDailyUsers(dailyUsersResponse?.data || []);
       setUsageReport(usageReportResponse?.data || []);
@@ -250,6 +306,23 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
           }
         });
 
+        return nextValue;
+      });
+      setSubscriptionForms((currentValue) => {
+        const nextValue = { ...currentValue };
+        (subscriptionsResponse?.data || []).forEach((entry) => {
+          const normalized = normalizeSubscriptionEntry(entry, companiesResponse?.data || []);
+          nextValue[normalized.company_id] = {
+            plan_code: currentValue[normalized.company_id]?.plan_code || normalized.plan_code || "trial",
+            status: currentValue[normalized.company_id]?.status || normalized.status || "active",
+            payment_method:
+              currentValue[normalized.company_id]?.payment_method || normalized.payment_method || "transferencia",
+            expires_at:
+              currentValue[normalized.company_id]?.expires_at ||
+              toDateInputValue(normalized.expires_at || normalized.trial_ends_at),
+            notes: currentValue[normalized.company_id]?.notes ?? normalized.notes ?? "",
+          };
+        });
         return nextValue;
       });
       setStatusMessage("Panel administrativo actualizado.");
@@ -346,6 +419,97 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
       setErrorMessage(error.message || "No se pudo crear la empresa o asignar el usuario.");
     } finally {
       setCreatingCompany(false);
+    }
+  }
+
+  function updateSubscriptionForm(companyId, field, value) {
+    setSubscriptionForms((currentValue) => {
+      const currentEntry =
+        currentValue[companyId] ||
+        subscriptionRows.find((entry) => entry.company_id === companyId) || {
+          plan_code: "trial",
+          status: "active",
+          payment_method: "transferencia",
+          expires_at: "",
+          notes: "",
+        };
+
+      const nextValue = {
+        ...currentValue,
+        [companyId]: {
+          ...currentEntry,
+          [field]: value,
+        },
+      };
+
+      if (field === "plan_code") {
+        nextValue[companyId].expires_at = suggestExpiryDate(value);
+      }
+
+      return nextValue;
+    });
+  }
+
+  async function handleSubscriptionSave(entry) {
+    const companyId = entry.company_id;
+    const subscriptionForm = subscriptionForms[companyId] || {};
+    const planCode = subscriptionForm.plan_code || entry.plan_code || "trial";
+    const nextStatus = subscriptionForm.status || entry.status || "active";
+    const paymentMethod = subscriptionForm.payment_method || entry.payment_method || "transferencia";
+    const expiresAt = subscriptionForm.expires_at
+      ? `${subscriptionForm.expires_at}T23:59:59`
+      : entry.expires_at || entry.trial_ends_at || null;
+
+    try {
+      setSavingSubscriptionId(companyId);
+      setErrorMessage("");
+
+      const payload = {
+        company_id: companyId,
+        plan_code: planCode,
+        plan_name: planLabel(planCode),
+        price_mxn: PLAN_PRICES[planCode] ?? 0,
+        payment_method: paymentMethod,
+        status: nextStatus,
+        starts_at: entry.starts_at || new Date().toISOString(),
+        expires_at: expiresAt,
+        trial_ends_at: planCode === "trial" ? expiresAt : null,
+        notes: subscriptionForm.notes?.trim() || null,
+      };
+
+      const { data, error } = await supabase
+        .from("company_subscriptions")
+        .upsert(payload, { onConflict: "company_id" })
+        .select(
+          "company_id, plan_code, plan_name, price_mxn, payment_method, status, trial_ends_at, starts_at, expires_at, grace_until, notes, updated_at"
+        )
+        .single();
+
+      if (error) throw error;
+
+      const normalized = normalizeSubscriptionEntry(data, companies);
+      setSubscriptions((currentValue) => {
+        const exists = currentValue.some((item) => item.company_id === companyId);
+        return exists
+          ? currentValue.map((item) => (item.company_id === companyId ? normalized : item))
+          : [normalized, ...currentValue];
+      });
+      setSubscriptionForms((currentValue) => ({
+        ...currentValue,
+        [companyId]: {
+          plan_code: normalized.plan_code,
+          status: normalized.status,
+          payment_method: normalized.payment_method || "transferencia",
+          expires_at: toDateInputValue(normalized.expires_at || normalized.trial_ends_at),
+          notes: normalized.notes || "",
+        },
+      }));
+      setStatusMessage(`Plan actualizado para ${normalized.company_name || "la empresa"}.`);
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error.message || "No se pudo actualizar el plan de la empresa.");
+    } finally {
+      setSavingSubscriptionId("");
     }
   }
 
@@ -498,6 +662,18 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
           <div className="label">Empresas registradas</div>
           <div className="value">{metrics.totalCompanies}</div>
         </div>
+        <div className="stat-card success">
+          <div className="label">En prueba</div>
+          <div className="value">{metrics.trialCompanies}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Mensuales</div>
+          <div className="value">{metrics.monthlyCompanies}</div>
+        </div>
+        <div className="stat-card warning">
+          <div className="label">Anuales</div>
+          <div className="value">{metrics.yearlyCompanies}</div>
+        </div>
         <div className="stat-card warning">
           <div className="label">Pendientes de validar</div>
           <div className="value">{metrics.pendingCompanies}</div>
@@ -509,6 +685,10 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
         <div className="stat-card danger">
           <div className="label">Suspendidas</div>
           <div className="value">{metrics.suspendedCompanies}</div>
+        </div>
+        <div className="stat-card danger">
+          <div className="label">Planes vencidos</div>
+          <div className="value">{metrics.expiredPlans}</div>
         </div>
         <button
           type="button"
@@ -653,6 +833,141 @@ export default function SuperAdminPage({ currentUser, adminContext }) {
               </button>
             </div>
           </form>
+
+          <div className="section-head admin-usage-head">
+            <div>
+              <h2 className="section-title">Planes y vencimientos</h2>
+              <p className="section-copy">
+                Administra la prueba gratis de 14 dias y cambia cada empresa a plan mensual de 399 MXN o anual de
+                3,600 MXN.
+              </p>
+            </div>
+          </div>
+
+          {subscriptionRows.length > 0 ? (
+            <div className="admin-plans-grid">
+              {subscriptionRows.map((entry) => {
+                const form = subscriptionForms[entry.company_id] || {};
+                const effectivePlan = form.plan_code || entry.plan_code || "trial";
+                const effectiveStatus = form.status || entry.status || "active";
+                const effectiveExpiry =
+                  form.expires_at || toDateInputValue(entry.expires_at || entry.trial_ends_at);
+
+                return (
+                  <article key={entry.company_id} className="admin-plan-card">
+                    <div className="admin-plan-card-head">
+                      <div>
+                        <h3>{entry.company_name || "Sin empresa"}</h3>
+                        <p>{entry.owner_email || "Sin correo asociado"}</p>
+                      </div>
+                      <div className="support-card-badges">
+                        <span className={`status-chip ${planChipClass(effectivePlan)}`}>{planLabel(effectivePlan)}</span>
+                        <span className={`status-chip ${companyStatusClass(effectiveStatus)}`}>
+                          {companyStatusLabel(effectiveStatus)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="admin-plan-meta">
+                      <div>
+                        <span className="quotes-summary-label">Precio</span>
+                        <strong>{formatCurrency(PLAN_PRICES[effectivePlan] ?? entry.price_mxn ?? 0)}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Vence</span>
+                        <strong>{effectiveExpiry ? formatDate(effectiveExpiry) : "Sin fecha"}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Pago</span>
+                        <strong>{paymentMethodLabel(form.payment_method || entry.payment_method)}</strong>
+                      </div>
+                      <div>
+                        <span className="quotes-summary-label">Ultima actualizacion</span>
+                        <strong>{entry.updated_at ? formatDate(entry.updated_at) : "Sin fecha"}</strong>
+                      </div>
+                    </div>
+
+                    <div className="admin-plan-form-grid">
+                      <div className="form-group">
+                        <label>Plan</label>
+                        <select
+                          className="quotes-select"
+                          value={effectivePlan}
+                          onChange={(event) => updateSubscriptionForm(entry.company_id, "plan_code", event.target.value)}
+                        >
+                          <option value="trial">Prueba gratis</option>
+                          <option value="monthly">Mensual 399 MXN</option>
+                          <option value="yearly">Anual 3,600 MXN</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Estatus</label>
+                        <select
+                          className="quotes-select"
+                          value={effectiveStatus}
+                          onChange={(event) => updateSubscriptionForm(entry.company_id, "status", event.target.value)}
+                        >
+                          <option value="active">Activa</option>
+                          <option value="expired">Vencida</option>
+                          <option value="suspended">Suspendida</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Forma de pago</label>
+                        <select
+                          className="quotes-select"
+                          value={form.payment_method || entry.payment_method || "transferencia"}
+                          onChange={(event) =>
+                            updateSubscriptionForm(entry.company_id, "payment_method", event.target.value)
+                          }
+                        >
+                          <option value="transferencia">Transferencia</option>
+                          <option value="mercado_pago">Mercado Pago</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Vencimiento</label>
+                        <input
+                          type="date"
+                          value={effectiveExpiry || ""}
+                          onChange={(event) => updateSubscriptionForm(entry.company_id, "expires_at", event.target.value)}
+                        />
+                      </div>
+
+                      <div className="form-group form-group-full">
+                        <label>Notas</label>
+                        <textarea
+                          rows="2"
+                          value={form.notes ?? entry.notes ?? ""}
+                          onChange={(event) => updateSubscriptionForm(entry.company_id, "notes", event.target.value)}
+                          placeholder="Pago recibido, fecha de renovacion, observaciones..."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="settings-actions">
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={() => handleSubscriptionSave(entry)}
+                        disabled={savingSubscriptionId === entry.company_id}
+                      >
+                        {savingSubscriptionId === entry.company_id ? "Guardando plan..." : "Guardar plan"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <strong>No hay planes cargados todavia.</strong>
+              <span>En cuanto ejecutes el SQL de company_subscriptions veras aqui los planes por empresa.</span>
+            </div>
+          )}
 
           <div className="section-head admin-usage-head">
             <div>
@@ -1056,4 +1371,72 @@ function supportStatusClass(status) {
   if (status === "esperando_usuario") return "status-chip-danger";
   if (status === "en_revision") return "status-chip";
   return "status-chip-warning";
+}
+
+function normalizeSubscriptionEntry(entry, companies) {
+  const company = (companies || []).find((item) => item.company_id === entry.company_id);
+  return {
+    ...entry,
+    company_name: company?.company_name || "Sin empresa",
+    owner_email: company?.owner_email || "Sin correo",
+  };
+}
+
+function toDateInputValue(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function suggestExpiryDate(planCode) {
+  const date = new Date();
+  if (planCode === "yearly") {
+    date.setDate(date.getDate() + 365);
+  } else if (planCode === "monthly") {
+    date.setDate(date.getDate() + 30);
+  } else {
+    date.setDate(date.getDate() + 14);
+  }
+
+  return toDateInputValue(date.toISOString());
+}
+
+function planLabel(planCode) {
+  if (planCode === "monthly") return "Mensual";
+  if (planCode === "yearly") return "Anual";
+  return "Prueba";
+}
+
+function planChipClass(planCode) {
+  if (planCode === "yearly") return "status-chip-success";
+  if (planCode === "monthly") return "status-chip-warning";
+  return "status-chip";
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function isSubscriptionExpired(entry) {
+  const normalizedStatus = String(entry?.status || "active").toLowerCase();
+  if (normalizedStatus === "expired") return true;
+  const expiresAt = entry?.expires_at || entry?.trial_ends_at;
+  if (!expiresAt) return false;
+  const expiresTime = new Date(expiresAt).getTime();
+  if (Number.isNaN(expiresTime)) return false;
+  return Date.now() > expiresTime;
+}
+
+function paymentMethodLabel(value) {
+  if (value === "mercado_pago") return "Mercado Pago";
+  if (value === "transferencia") return "Transferencia";
+  return "Sin definir";
 }

@@ -233,6 +233,7 @@ function App() {
               companyId={companyContext.companyId}
               company={companyContext.company}
               branding={companyContext.branding}
+              subscription={companyContext.subscription}
             />
           }
         />
