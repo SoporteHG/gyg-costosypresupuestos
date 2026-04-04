@@ -657,9 +657,11 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.text(String(cotizacion.currency_code || "MXN"), rightColX + 54, detailsTop);
       pdf.text(formatDate(cotizacion.created_at, false), rightColX + 54, detailsTop + 18);
 
+      const tableContentWidth = 532;
+      const tableStartX = marginX + (contentWidth - tableContentWidth) / 2;
       const boxTop = topY + 164;
       const boxGap = 8;
-      const boxWidth = (contentWidth - boxGap * 3) / 4;
+      const boxWidth = (tableContentWidth - boxGap * 3) / 4;
       const boxHeaderHeight = 20;
       const boxBodyHeight = 28;
       const boxData = [
@@ -670,7 +672,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       ];
 
       boxData.forEach((box, index) => {
-        const x = marginX + index * (boxWidth + boxGap);
+        const x = tableStartX + index * (boxWidth + boxGap);
         pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
         pdf.rect(x, boxTop, boxWidth, boxHeaderHeight, "F");
         pdf.setTextColor(255, 255, 255);
@@ -701,10 +703,10 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           formatCurrency(item.total, cotizacion.currency_code),
         ]),
         styles: {
-          fontSize: 9,
+          fontSize: 8.2,
           lineColor: [226, 232, 240],
           lineWidth: 0.6,
-          cellPadding: { top: 7, right: 6, bottom: 7, left: 6 },
+          cellPadding: { top: 6, right: 4, bottom: 6, left: 4 },
           textColor: [30, 41, 59],
           valign: "middle",
         },
@@ -712,16 +714,19 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           fillColor: [accentColor.r, accentColor.g, accentColor.b],
           textColor: [255, 255, 255],
           fontStyle: "bold",
+          halign: "center",
+          fontSize: 7.8,
         },
         columnStyles: {
-          0: { cellWidth: 72 },
-          1: { cellWidth: 186 },
-          2: { cellWidth: 56 },
-          3: { halign: "center", cellWidth: 60 },
-          4: { halign: "right", cellWidth: 72 },
-          5: { halign: "right", cellWidth: 72 },
+          0: { halign: "center", cellWidth: 42 },
+          1: { halign: "center", cellWidth: 66 },
+          2: { cellWidth: 176 },
+          3: { halign: "center", cellWidth: 54 },
+          4: { halign: "center", cellWidth: 58 },
+          5: { halign: "right", cellWidth: 68 },
+          6: { halign: "right", cellWidth: 68 },
         },
-        margin: { left: marginX, right: marginX },
+        margin: { left: tableStartX, right: tableStartX },
       });
 
       const tableY = pdf.lastAutoTable?.finalY || boxTop + 120;
@@ -758,27 +763,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setTextColor(71, 85, 105);
       const amountLines = pdf.splitTextToSize(`Importe en letra: ${amountInWords}`, contentWidth - 12);
       pdf.text(amountLines, marginX, summaryY + 110);
-
-      const signatureY = summaryY + 158;
-      pdf.setDrawColor(203, 213, 225);
-      pdf.line(marginX, signatureY, marginX + 180, signatureY);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
-      pdf.setTextColor(15, 23, 42);
-      pdf.text("Firma / sello", marginX, signatureY + 15);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
-      pdf.setTextColor(100, 116, 139);
-      pdf.text(brandName, marginX, signatureY + 29);
-
-      if (signatureUrl) {
-        try {
-          const signatureData = await getImageDataUrl(signatureUrl);
-          pdf.addImage(signatureData.dataUrl, "PNG", marginX + 8, signatureY - 48, 110, 38);
-        } catch (error) {
-          console.error("No se pudo cargar la firma para el PDF:", error);
-        }
-      }
 
       const footerY = pageHeight - 52;
       pdf.setDrawColor(203, 213, 225);
@@ -1262,17 +1246,18 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .meta-head { background: ${brandColor}; color: #fff; font-size: 11px; font-weight: 700; text-align: center; padding: 5px 8px; }
           .meta-body { border: 1px solid #cbd5e1; border-top: none; padding: 8px 10px; font-size: 10px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
           table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
-          col.col-partida { width: 8%; }
-          col.col-articulo { width: 14%; }
-          col.col-nombre { width: 35%; }
-          col.col-unidad { width: 11%; }
-          col.col-cantidad { width: 11%; }
-          col.col-precio { width: 10.5%; }
-          col.col-importe { width: 10.5%; }
-          th, td { padding: 7px 7px; border: 1px solid #dbe3ef; text-align: left; font-size: 10.5px; }
-          th { background: ${brandColor}; color: #fff; font-size: 10px; }
-          td { word-wrap: break-word; }
-          td:nth-child(4), td:nth-child(5), td:nth-child(6), th:nth-child(4), th:nth-child(5), th:nth-child(6) { text-align: right; }
+          col.col-partida { width: 7%; }
+          col.col-articulo { width: 13%; }
+          col.col-nombre { width: 36%; }
+          col.col-unidad { width: 10%; }
+          col.col-cantidad { width: 10%; }
+          col.col-precio { width: 12%; }
+          col.col-importe { width: 12%; }
+          th, td { padding: 6px 6px; border: 1px solid #dbe3ef; text-align: left; font-size: 9.4px; }
+          th { background: ${brandColor}; color: #fff; font-size: 8.6px; text-align: center; }
+          td { word-wrap: break-word; overflow-wrap: break-word; }
+          td:nth-child(1), td:nth-child(4), td:nth-child(5) { text-align: center; }
+          td:nth-child(6), td:nth-child(7) { text-align: right; }
           .totals { width: 220px; margin: 18px -18px 0 auto; padding: 0; }
           .totals-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding: 5px 0; align-items: center; }
           .totals-row span:first-child { color: #64748b; font-size: 10px; }
@@ -1280,7 +1265,6 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .totals-row.total { border-top: 1px solid #cbd5e1; margin-top: 6px; padding-top: 9px; font-size: 14px; font-weight: 800; }
           .totals-row.total strong { font-size: 14px; color: #0f172a; }
           .amount-words { margin-top: 8px; color: #64748b; font-size: 9px; line-height: 1.35; }
-          .signature { margin-top: 44px; width: 220px; border-top: 1px solid #94a3b8; padding-top: 8px; }
           .footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 9px; display: flex; justify-content: space-between; gap: 18px; }
           .footer-copy { max-width: 70%; }
           .footer-author { text-align: right; white-space: nowrap; }
@@ -1367,10 +1351,6 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               <div class="totals-row"><span>IVA ${Number(cotizacion.iva_rate || 0)}%</span><strong>${formatCurrency(cotizacion.iva_amount, cotizacion.currency_code)}</strong></div>
               <div class="totals-row total"><span>Total</span><strong>${formatCurrency(cotizacion.total, cotizacion.currency_code)}</strong></div>
               <div class="amount-words">Importe en letra: ${escapeHtml(amountInWords)}</div>
-            </div>
-            <div class="signature">
-              <div class="label">Firma / sello</div>
-              <div class="value">${escapeHtml(brandName)}</div>
             </div>
             <div class="footer">
               <div class="footer-copy">${escapeHtml(companyFooter)}</div>
