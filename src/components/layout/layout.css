@@ -1009,6 +1009,12 @@
   grid-template-columns: minmax(240px, 1.5fr) repeat(3, minmax(150px, 0.75fr));
 }
 
+.quotes-logistics-grid {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.55fr) minmax(100px, 0.55fr) minmax(100px, 0.55fr) minmax(240px, 1.15fr) minmax(290px, 1.35fr);
+  gap: 18px;
+}
+
 .quotes-select {
   width: 100%;
   border: 1px solid #d1d5db;
@@ -1224,6 +1230,7 @@
 
   .quotes-top-grid,
   .quotes-top-grid-wide,
+  .quotes-logistics-grid,
   .dashboard-plan-grid,
   .quotes-client-summary,
   .quotes-client-summary-extended,
@@ -2275,6 +2282,7 @@
 
   .quotes-top-grid,
   .quotes-top-grid-wide,
+  .quotes-logistics-grid,
   .quotes-client-summary,
   .quotes-client-summary-extended,
   .dashboard-metrics-grid,

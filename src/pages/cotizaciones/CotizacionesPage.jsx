@@ -26,6 +26,8 @@ const initialForm = {
   vigenciaDias: String(DEFAULT_VALIDITY_DAYS),
   ivaRate: String(DEFAULT_IVA_RATE),
   currencyCode: "MXN",
+  tiempoEntrega: "",
+  condicionesEmbarque: "",
   notas: "",
   items: [initialItem],
 };
@@ -46,7 +48,7 @@ const STATUS_META = {
 };
 
 const QUOTES_SELECT_COLUMNS =
-  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_firma_url, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_firma_url, tiempo_entrega, condiciones_embarque, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
 
 const LEGACY_QUOTES_SELECT_COLUMNS =
   "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
@@ -144,7 +146,12 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
 
   function isMissingVendorQuoteSchema(error) {
     const errorText = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
-    return errorText.includes("vendedor_id") || errorText.includes("vendedor_firma_url");
+    return (
+      errorText.includes("vendedor_id") ||
+      errorText.includes("vendedor_firma_url") ||
+      errorText.includes("tiempo_entrega") ||
+      errorText.includes("condiciones_embarque")
+    );
   }
 
   async function fetchCotizaciones(tenantId) {
@@ -409,6 +416,8 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       vigenciaDias: String(cotizacion.vigencia_dias ?? DEFAULT_VALIDITY_DAYS),
       ivaRate: String(cotizacion.iva_rate ?? DEFAULT_IVA_RATE),
       currencyCode: cotizacion.currency_code === "USD" ? "USD" : "MXN",
+      tiempoEntrega: cotizacion.tiempo_entrega || "",
+      condicionesEmbarque: cotizacion.condiciones_embarque || "",
       notas: cotizacion.notas || "",
       items: normalizedItems,
     });
@@ -439,6 +448,8 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
       cliente_centro_costos: selectedClient?.centro_costos || "MXN",
       vendedor_nombre: selectedVendor?.nombre || null,
+      tiempo_entrega: form.tiempoEntrega.trim() || null,
+      condiciones_embarque: form.condicionesEmbarque.trim() || null,
       currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
       estado: form.estado,
       vigencia_dias: Number(form.vigenciaDias || 0),
@@ -664,6 +675,8 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       vendedor_id: selectedVendor?.id || null,
       vendedor_nombre: selectedVendor?.nombre || null,
       vendedor_firma_url: selectedVendor?.firma_url || null,
+      tiempo_entrega: form.tiempoEntrega.trim() || null,
+      condiciones_embarque: form.condicionesEmbarque.trim() || null,
       currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
       estado: form.estado,
       vigencia_dias: Number(form.vigenciaDias || 0),
@@ -794,37 +807,45 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const tableStartX = marginX + (contentWidth - tableContentWidth) / 2;
       const boxTop = topY + 164;
       const boxGap = 8;
-      const boxWidth = (tableContentWidth - boxGap * 3) / 4;
+      const boxColumns = 3;
+      const boxRows = 2;
+      const boxWidth = (tableContentWidth - boxGap * (boxColumns - 1)) / boxColumns;
       const boxHeaderHeight = 20;
       const boxBodyHeight = 28;
+      const boxRowGap = 10;
       const boxData = [
         { title: "Credito", value: cotizacion.cliente_condiciones_credito || "Sin condiciones" },
         { title: "Vigencia", value: `${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias` },
         { title: "Moneda", value: cotizacion.currency_code || "MXN" },
         { title: "Vendedor", value: cotizacion.vendedor_nombre || "Sin vendedor" },
+        { title: "Tiempo de Entrega", value: cotizacion.tiempo_entrega || "Por definir" },
+        { title: "Condiciones de Embarque", value: cotizacion.condiciones_embarque || "Por definir" },
       ];
 
       boxData.forEach((box, index) => {
-        const x = tableStartX + index * (boxWidth + boxGap);
+        const columnIndex = index % boxColumns;
+        const rowIndex = Math.floor(index / boxColumns);
+        const x = tableStartX + columnIndex * (boxWidth + boxGap);
+        const y = boxTop + rowIndex * (boxHeaderHeight + boxBodyHeight + boxRowGap);
         pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
-        pdf.rect(x, boxTop, boxWidth, boxHeaderHeight, "F");
+        pdf.rect(x, y, boxWidth, boxHeaderHeight, "F");
         pdf.setTextColor(255, 255, 255);
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(8.5);
-        pdf.text(box.title, x + boxWidth / 2, boxTop + 15, { align: "center" });
+        pdf.text(box.title, x + boxWidth / 2, y + 15, { align: "center" });
         pdf.setDrawColor(203, 213, 225);
         pdf.setFillColor(255, 255, 255);
-        pdf.rect(x, boxTop + boxHeaderHeight, boxWidth, boxBodyHeight, "FD");
+        pdf.rect(x, y + boxHeaderHeight, boxWidth, boxBodyHeight, "FD");
         pdf.setTextColor(15, 23, 42);
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(8.8);
-        pdf.text(truncateSingleLine(box.value, 24), x + boxWidth / 2, boxTop + boxHeaderHeight + 18, {
+        pdf.text(truncateSingleLine(box.value, 26), x + boxWidth / 2, y + boxHeaderHeight + 18, {
           align: "center",
         });
       });
 
       autoTable(pdf, {
-        startY: boxTop + boxHeaderHeight + boxBodyHeight + 18,
+        startY: boxTop + boxRows * (boxHeaderHeight + boxBodyHeight) + boxRowGap + 18,
         head: [["Partida", "Articulo", "Descripcion", "U. med.", "Unidades", "Precio", "Importe"]],
         body: (cotizacion.items || []).map((item, index) => [
           String(index + 1),
@@ -896,6 +917,18 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setTextColor(71, 85, 105);
       const amountLines = pdf.splitTextToSize(`Importe en letra: ${amountInWords}`, contentWidth - 12);
       pdf.text(amountLines, marginX, summaryY + 110);
+
+      const logisticsBlockX = marginX;
+      const logisticsStartY = summaryY + 138;
+      drawPdfInfoBlock(pdf, "Tiempo de Entrega", cotizacion.tiempo_entrega || "Por definir", logisticsBlockX, logisticsStartY, 220);
+      drawPdfInfoBlock(
+        pdf,
+        "Condiciones de Embarque",
+        cotizacion.condiciones_embarque || "Por definir",
+        logisticsBlockX,
+        logisticsStartY + 44,
+        220
+      );
 
       const sellerSignatureUrl = cotizacion.vendedor_firma_url || "";
       const sellerName = cotizacion.vendedor_nombre || "Vendedor";
@@ -1022,7 +1055,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                   <option value="autorizada">Autorizada y en proceso</option>
                 </select>
               </div>
+            </div>
 
+            <div className="quotes-logistics-grid">
               <div className="form-group quotes-number-field">
                 <label>Vigencia (dias)</label>
                 <input
@@ -1048,6 +1083,24 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
               <div className="form-group quotes-number-field">
                 <label>Moneda</label>
                 <input value={form.currencyCode} readOnly />
+              </div>
+
+              <div className="form-group">
+                <label>Tiempo de Entrega</label>
+                <input
+                  value={form.tiempoEntrega}
+                  onChange={(event) => updateFormField("tiempoEntrega", event.target.value)}
+                  placeholder="Ej. 5 dias habiles"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Condiciones de Embarque</label>
+                <input
+                  value={form.condicionesEmbarque}
+                  onChange={(event) => updateFormField("condicionesEmbarque", event.target.value)}
+                  placeholder="Ej. Puesto en obra / FOB / ocurre..."
+                />
               </div>
             </div>
 
@@ -1397,6 +1450,8 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
   const amountInWords = numberToSpanishWords(cotizacion.total, cotizacion.currency_code);
   const sellerSignatureUrl = cotizacion.vendedor_firma_url || "";
   const sellerName = cotizacion.vendedor_nombre || "Vendedor";
+  const tiempoEntrega = cotizacion.tiempo_entrega || "Por definir";
+  const condicionesEmbarque = cotizacion.condiciones_embarque || "Por definir";
   const itemsRows = (cotizacion.items || [])
     .map(
       (item, index) => `
@@ -1440,7 +1495,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .line { display: grid; grid-template-columns: 68px 1fr; gap: 12px; align-items: start; }
           .label { color: #0f172a; font-size: 10px; font-weight: 700; text-transform: uppercase; }
           .value { color: #334155; font-size: 11px; line-height: 1.35; }
-          .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+          .meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
           .meta-card { min-width: 0; }
           .meta-head { background: ${brandColor}; color: #fff; font-size: 11px; font-weight: 700; text-align: center; padding: 5px 8px; }
           .meta-body { border: 1px solid #cbd5e1; border-top: none; padding: 8px 10px; font-size: 10px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
@@ -1466,6 +1521,10 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .totals-row.total { border-top: 1px solid #cbd5e1; margin-top: 6px; padding-top: 9px; font-size: 14px; font-weight: 800; }
           .totals-row.total strong { font-size: 14px; color: #0f172a; }
           .amount-words { margin-top: 8px; color: #64748b; font-size: 9px; line-height: 1.35; }
+          .quote-logistics { margin-top: 18px; max-width: 240px; }
+          .quote-logistics-block + .quote-logistics-block { margin-top: 14px; }
+          .quote-logistics-label { display: block; margin-bottom: 5px; color: #64748b; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+          .quote-logistics-value { color: #0f172a; font-size: 9.2px; line-height: 1.45; white-space: pre-wrap; }
           .seller-signature { margin: 24px auto 0; width: 220px; text-align: center; color: #64748b; }
           .seller-signature-image { display: flex; justify-content: center; align-items: center; min-height: 70px; margin-bottom: 8px; }
           .seller-signature-image img { max-width: 255px; max-height: 63px; object-fit: contain; }
@@ -1527,6 +1586,14 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
                 <div class="meta-head">Vendedor</div>
                 <div class="meta-body">${escapeHtml(cotizacion.vendedor_nombre || "Sin vendedor")}</div>
               </div>
+              <div class="meta-card">
+                <div class="meta-head">Tiempo de Entrega</div>
+                <div class="meta-body">${escapeHtml(tiempoEntrega)}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-head">Condiciones de Embarque</div>
+                <div class="meta-body">${escapeHtml(condicionesEmbarque)}</div>
+              </div>
             </div>
             <table>
               <colgroup>
@@ -1557,6 +1624,16 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               <div class="totals-row total"><span>Total</span><strong>${formatCurrency(cotizacion.total, cotizacion.currency_code)}</strong></div>
               <div class="amount-words">Importe en letra: ${escapeHtml(amountInWords)}</div>
             </div>
+            <div class="quote-logistics">
+              <div class="quote-logistics-block">
+                <span class="quote-logistics-label">Tiempo de Entrega</span>
+                <div class="quote-logistics-value">${escapeHtml(tiempoEntrega)}</div>
+              </div>
+              <div class="quote-logistics-block">
+                <span class="quote-logistics-label">Condiciones de Embarque</span>
+                <div class="quote-logistics-value">${escapeHtml(condicionesEmbarque)}</div>
+              </div>
+            </div>
             ${sellerSignatureUrl ? `
               <div class="seller-signature">
                 <div class="seller-signature-image">
@@ -1582,6 +1659,18 @@ function drawSummaryRow(pdf, label, value, x, y, emphasize) {
   pdf.setTextColor(emphasize ? 15 : 100, emphasize ? 23 : 116, emphasize ? 42 : 139);
   pdf.text(label, x, y);
   pdf.text(value, x + 158, y, { align: "right" });
+}
+
+function drawPdfInfoBlock(pdf, label, value, x, y, width) {
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8.2);
+  pdf.setTextColor(71, 85, 105);
+  pdf.text(label, x, y);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8.8);
+  pdf.setTextColor(15, 23, 42);
+  const lines = pdf.splitTextToSize(String(value || "Por definir"), width);
+  pdf.text(lines, x, y + 14);
 }
 
 function fitImageIntoBox(imageWidth, imageHeight, maxWidth, maxHeight) {
