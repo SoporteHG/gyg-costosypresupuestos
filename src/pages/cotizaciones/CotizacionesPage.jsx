@@ -48,6 +48,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
   const [productos, setProductos] = useState([]);
   const [cotizaciones, setCotizaciones] = useState([]);
   const [form, setForm] = useState(initialForm);
+  const [editingQuoteId, setEditingQuoteId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -172,7 +173,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           supabase
             .from("cotizaciones")
             .select(
-              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
             )
             .eq("tenant_id", tenantId)
             .order("created_at", { ascending: false }),
@@ -305,6 +306,38 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         },
       ],
     });
+    setEditingQuoteId("");
+  }
+
+  function startEditingQuote(cotizacion) {
+    const normalizedItems = Array.isArray(cotizacion.items) && cotizacion.items.length
+      ? cotizacion.items.map((item) => ({
+          id: crypto.randomUUID(),
+          productoId: item.producto_id || "",
+          sku: item.sku || "",
+          nombre: item.nombre || "",
+          unidad: item.unidad || "",
+          cantidad: String(item.cantidad ?? 1),
+          precio: String(item.precio ?? 0),
+        }))
+      : [{ ...initialItem, id: crypto.randomUUID() }];
+
+    setEditingQuoteId(cotizacion.id);
+    setForm({
+      folio: cotizacion.folio || "",
+      clienteId: cotizacion.cliente_id || "",
+      estado: cotizacion.estado || "pendiente",
+      vigenciaDias: String(cotizacion.vigencia_dias ?? DEFAULT_VALIDITY_DAYS),
+      ivaRate: String(cotizacion.iva_rate ?? DEFAULT_IVA_RATE),
+      currencyCode: cotizacion.currency_code === "USD" ? "USD" : "MXN",
+      notas: cotizacion.notas || "",
+      items: normalizedItems,
+    });
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setMessage("");
+    setErrorMessage("");
+    setStatusDetail(`Editando cotizacion ${cotizacion.folio || ""}.`);
   }
 
   async function handleSubmit(event) {
@@ -368,44 +401,74 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         items: normalizedItems,
         subtotal: totals.subtotal,
         total: totals.total,
-        created_at: createdAt,
       };
 
-      const { data, error } = await withTimeout(
-        supabase
-          .from("cotizaciones")
-          .insert(payload)
-          .select(
-            "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
-          )
-          .single(),
-        "crear cotizacion"
-      );
+      let data = null;
+      let error = null;
+
+      if (editingQuoteId) {
+        ({ data, error } = await withTimeout(
+          supabase
+            .from("cotizaciones")
+            .update(payload)
+            .eq("id", editingQuoteId)
+            .select(
+              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+            )
+            .single(),
+          "actualizar cotizacion"
+        ));
+      } else {
+        ({ data, error } = await withTimeout(
+          supabase
+            .from("cotizaciones")
+            .insert({
+              ...payload,
+              created_at: createdAt,
+            })
+            .select(
+              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
+            )
+            .single(),
+          "crear cotizacion"
+        ));
+      }
 
       if (error) throw error;
 
-      const nextSeries = resolveNextQuoteSeries(folio, quotePrefix, nextQuoteNumber + 1);
-      const { error: brandingUpdateError } = await supabase
-        .from("company_branding")
-        .upsert(
-          {
-            company_id: tenantId,
-            quote_prefix: nextSeries.prefix || null,
-            quote_next_number: nextSeries.nextNumber,
-          },
-          { onConflict: "company_id" }
-        );
+      let nextSeries = {
+        prefix: quotePrefix,
+        nextNumber: nextQuoteNumber,
+      };
 
-      if (!brandingUpdateError) {
-        setQuotePrefix(nextSeries.prefix);
-        setNextQuoteNumber(nextSeries.nextNumber);
-      } else {
-        console.error("No se pudo actualizar el consecutivo de cotizaciones:", brandingUpdateError);
+      if (!editingQuoteId) {
+        nextSeries = resolveNextQuoteSeries(folio, quotePrefix, nextQuoteNumber + 1);
+        const { error: brandingUpdateError } = await supabase
+          .from("company_branding")
+          .upsert(
+            {
+              company_id: tenantId,
+              quote_prefix: nextSeries.prefix || null,
+              quote_next_number: nextSeries.nextNumber,
+            },
+            { onConflict: "company_id" }
+          );
+
+        if (!brandingUpdateError) {
+          setQuotePrefix(nextSeries.prefix);
+          setNextQuoteNumber(nextSeries.nextNumber);
+        } else {
+          console.error("No se pudo actualizar el consecutivo de cotizaciones:", brandingUpdateError);
+        }
       }
 
-      setCotizaciones((previous) => [data, ...previous]);
-      setMessage("Cotizacion creada correctamente.");
-      setStatusDetail("Cotizacion guardada.");
+      setCotizaciones((previous) =>
+        editingQuoteId
+          ? previous.map((entry) => (entry.id === editingQuoteId ? data : entry))
+          : [data, ...previous]
+      );
+      setMessage(editingQuoteId ? "Cotizacion actualizada correctamente." : "Cotizacion creada correctamente.");
+      setStatusDetail(editingQuoteId ? "Cotizacion actualizada." : "Cotizacion guardada.");
       resetForm(nextSeries.nextNumber, nextSeries.prefix);
     } catch (error) {
       console.error(error);
@@ -970,8 +1033,13 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
 
             <div className="settings-actions quotes-actions">
               <button type="submit" className="primary-btn" disabled={saving}>
-                {saving ? "Guardando..." : "Crear cotizacion"}
+                {saving ? "Guardando..." : editingQuoteId ? "Actualizar cotizacion" : "Crear cotizacion"}
               </button>
+              {editingQuoteId ? (
+                <button type="button" className="secondary-btn" onClick={() => resetForm()}>
+                  Cancelar edicion
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="secondary-btn"
@@ -1063,6 +1131,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                     <p className="quote-card-notes">{cotizacion.notas || "Sin notas adicionales."}</p>
 
                     <div className="quote-card-actions">
+                      <button type="button" className="secondary-btn" onClick={() => startEditingQuote(cotizacion)}>
+                        Editar
+                      </button>
                       <button type="button" className="primary-btn" onClick={() => handleDownloadPdf(cotizacion)}>
                         Descargar PDF
                       </button>
