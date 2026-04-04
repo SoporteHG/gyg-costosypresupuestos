@@ -870,13 +870,13 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           fontSize: 7.8,
         },
         columnStyles: {
-          0: { halign: "center", cellWidth: 42 },
-          1: { halign: "center", cellWidth: 66 },
-          2: { cellWidth: 176 },
-          3: { halign: "center", cellWidth: 54 },
-          4: { halign: "center", cellWidth: 58 },
-          5: { halign: "right", cellWidth: 68 },
-          6: { halign: "right", cellWidth: 68 },
+          0: { halign: "center", cellWidth: 28 },
+          1: { halign: "center", cellWidth: 76 },
+          2: { cellWidth: 220 },
+          3: { halign: "center", cellWidth: 44 },
+          4: { halign: "center", cellWidth: 42 },
+          5: { halign: "right", cellWidth: 60 },
+          6: { halign: "right", cellWidth: 60 },
         },
         margin: { left: tableStartX, right: tableStartX },
       });
@@ -1491,13 +1491,13 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .meta-head { background: ${brandColor}; color: #fff; font-size: 11px; font-weight: 700; text-align: center; padding: 5px 8px; }
           .meta-body { border: 1px solid #cbd5e1; border-top: none; padding: 8px 10px; font-size: 10px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
           table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
-          col.col-partida { width: 7%; }
-          col.col-articulo { width: 13%; }
-          col.col-nombre { width: 36%; }
-          col.col-unidad { width: 10%; }
-          col.col-cantidad { width: 10%; }
-          col.col-precio { width: 12%; }
-          col.col-importe { width: 12%; }
+          col.col-partida { width: 4%; }
+          col.col-articulo { width: 14%; }
+          col.col-nombre { width: 47%; }
+          col.col-unidad { width: 8%; }
+          col.col-cantidad { width: 7%; }
+          col.col-precio { width: 10%; }
+          col.col-importe { width: 10%; }
           th, td { padding: 6px 6px; border: 1px solid #dbe3ef; text-align: left; font-size: 9.4px; }
           th { background: ${brandColor}; color: #fff; font-size: 8.6px; text-align: center; }
           td { word-wrap: break-word; overflow-wrap: break-word; }
