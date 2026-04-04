@@ -7,6 +7,7 @@ const initialForm = {
   email: "",
   telefono: "",
   comision: "",
+  firmaUrl: "",
   activo: true,
 };
 
@@ -64,7 +65,7 @@ export default function VendedoresPage({ currentUser, companyId }) {
       const { data, error } = await withTimeout(
         supabase
           .from("vendedores")
-          .select("id, tenant_id, nombre, email, telefono, comision, activo, created_at")
+          .select("id, tenant_id, nombre, email, telefono, comision, firma_url, activo, created_at")
           .eq("tenant_id", currentCompanyId)
           .order("nombre", { ascending: true }),
         "consultar vendedores"
@@ -98,6 +99,7 @@ export default function VendedoresPage({ currentUser, companyId }) {
       email: vendedor.email || "",
       telefono: vendedor.telefono || "",
       comision: vendedor.comision == null ? "" : String(vendedor.comision),
+      firmaUrl: vendedor.firma_url || "",
       activo: vendedor.activo !== false,
     });
     setMessage("");
@@ -108,6 +110,35 @@ export default function VendedoresPage({ currentUser, companyId }) {
     setForm(initialForm);
     setMessage("");
     setErrorMessage("");
+  }
+
+  async function handleSignatureChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setErrorMessage("");
+      setMessage("");
+
+      if (!file.type.startsWith("image/")) {
+        throw new Error("Selecciona una imagen valida para la firma.");
+      }
+
+      if (file.size > 1024 * 1024) {
+        throw new Error("La firma no debe pesar mas de 1 MB.");
+      }
+
+      const firmaUrl = await readFileAsDataUrl(file);
+      setForm((previous) => ({
+        ...previous,
+        firmaUrl,
+      }));
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error.message || "No se pudo cargar la firma.");
+    } finally {
+      event.target.value = "";
+    }
   }
 
   async function handleSubmit(event) {
@@ -127,6 +158,7 @@ export default function VendedoresPage({ currentUser, companyId }) {
         email: form.email.trim() || null,
         telefono: form.telefono.trim() || null,
         comision: form.comision === "" ? null : Number(form.comision),
+        firma_url: form.firmaUrl || null,
         activo: Boolean(form.activo),
       };
 
@@ -143,7 +175,7 @@ export default function VendedoresPage({ currentUser, companyId }) {
             .from("vendedores")
             .update(payload)
             .eq("id", form.id)
-            .select("id, tenant_id, nombre, email, telefono, comision, activo, created_at")
+            .select("id, tenant_id, nombre, email, telefono, comision, firma_url, activo, created_at")
             .single(),
           "actualizar vendedor"
         );
@@ -155,7 +187,7 @@ export default function VendedoresPage({ currentUser, companyId }) {
           supabase
             .from("vendedores")
             .insert(payload)
-            .select("id, tenant_id, nombre, email, telefono, comision, activo, created_at")
+            .select("id, tenant_id, nombre, email, telefono, comision, firma_url, activo, created_at")
             .single(),
           "crear vendedor"
         );
@@ -299,6 +331,26 @@ export default function VendedoresPage({ currentUser, companyId }) {
                   <span>Vendedor activo</span>
                 </label>
               </div>
+
+              <div className="form-group form-group-full">
+                <label>Firma del vendedor (opcional)</label>
+                <input type="file" accept="image/*" onChange={handleSignatureChange} />
+                <p className="section-copy">
+                  Carga una imagen ligera de la firma. Se agregara automaticamente en las cotizaciones.
+                </p>
+                {form.firmaUrl ? (
+                  <div className="vendors-signature-preview">
+                    <img src={form.firmaUrl} alt={`Firma de ${form.nombre || "vendedor"}`} />
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => setForm((previous) => ({ ...previous, firmaUrl: "" }))}
+                    >
+                      Quitar firma
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="settings-actions vendors-actions">
@@ -349,6 +401,7 @@ export default function VendedoresPage({ currentUser, companyId }) {
                     <th>Correo</th>
                     <th>Telefono</th>
                     <th>Comision</th>
+                    <th>Firma</th>
                     <th>Estatus</th>
                     <th>Acciones</th>
                   </tr>
@@ -360,6 +413,13 @@ export default function VendedoresPage({ currentUser, companyId }) {
                       <td>{vendedor.email || "-"}</td>
                       <td>{vendedor.telefono || "-"}</td>
                       <td>{vendedor.comision == null ? "-" : `${Number(vendedor.comision).toFixed(2)}%`}</td>
+                      <td>
+                        {vendedor.firma_url ? (
+                          <div className="vendors-signature-thumb">
+                            <img src={vendedor.firma_url} alt={`Firma de ${vendedor.nombre}`} />
+                          </div>
+                        ) : "-"}
+                      </td>
                       <td>
                         <span
                           className={
@@ -400,4 +460,13 @@ export default function VendedoresPage({ currentUser, companyId }) {
       </div>
     </div>
   );
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen seleccionada."));
+    reader.readAsDataURL(file);
+  });
 }

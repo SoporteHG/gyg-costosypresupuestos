@@ -21,6 +21,7 @@ const initialItem = {
 const initialForm = {
   folio: "",
   clienteId: "",
+  vendedorId: "",
   estado: "pendiente",
   vigenciaDias: String(DEFAULT_VALIDITY_DAYS),
   ivaRate: String(DEFAULT_IVA_RATE),
@@ -44,9 +45,16 @@ const STATUS_META = {
   },
 };
 
+const QUOTES_SELECT_COLUMNS =
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_firma_url, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
+
+const LEGACY_QUOTES_SELECT_COLUMNS =
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
+
 export default function CotizacionesPage({ currentUser, companyId, company, branding }) {
   const [clientes, setClientes] = useState([]);
   const [productos, setProductos] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
   const [cotizaciones, setCotizaciones] = useState([]);
   const [form, setForm] = useState(initialForm);
   const [editingQuoteId, setEditingQuoteId] = useState("");
@@ -57,10 +65,16 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
   const [statusDetail, setStatusDetail] = useState("Preparando carga...");
   const [quotePrefix, setQuotePrefix] = useState(resolveQuotePrefix(branding));
   const [nextQuoteNumber, setNextQuoteNumber] = useState(resolveQuoteNextNumber(branding));
+  const [quoteVendorSchemaReady, setQuoteVendorSchemaReady] = useState(true);
 
   const selectedClient = useMemo(
     () => clientes.find((cliente) => cliente.id === form.clienteId) || null,
     [clientes, form.clienteId]
+  );
+
+  const selectedVendor = useMemo(
+    () => vendedores.find((vendedor) => vendedor.id === form.vendedorId) || null,
+    [vendedores, form.vendedorId]
   );
 
   useEffect(() => {
@@ -83,22 +97,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             }),
     }));
   }, [branding?.quote_prefix, branding?.quote_next_number, companyId]);
-
-  useEffect(() => {
-    if (!selectedClient) {
-      return;
-    }
-
-    const nextCurrency = selectedClient.centro_costos === "USD" ? "USD" : "MXN";
-    setForm((previous) =>
-      previous.currencyCode === nextCurrency
-        ? previous
-        : {
-            ...previous,
-            currencyCode: nextCurrency,
-          }
-    );
-  }, [selectedClient]);
 
   const totals = useMemo(() => {
     const subtotal = form.items.reduce((accumulator, item) => {
@@ -144,6 +142,53 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     return companyId;
   }
 
+  function isMissingVendorQuoteSchema(error) {
+    const errorText = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
+    return errorText.includes("vendedor_id") || errorText.includes("vendedor_firma_url");
+  }
+
+  async function fetchCotizaciones(tenantId) {
+    const queryFactory = (columns) =>
+      supabase
+        .from("cotizaciones")
+        .select(columns)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false });
+
+    const primaryResponse = await withTimeout(
+      queryFactory(QUOTES_SELECT_COLUMNS),
+      "consultar cotizaciones"
+    );
+
+    if (!primaryResponse.error) {
+      setQuoteVendorSchemaReady(true);
+      return primaryResponse;
+    }
+
+    if (!isMissingVendorQuoteSchema(primaryResponse.error)) {
+      return primaryResponse;
+    }
+
+    const fallbackResponse = await withTimeout(
+      queryFactory(LEGACY_QUOTES_SELECT_COLUMNS),
+      "consultar cotizaciones"
+    );
+
+    if (!fallbackResponse.error) {
+      setQuoteVendorSchemaReady(false);
+      return {
+        ...fallbackResponse,
+        data: (fallbackResponse.data || []).map((cotizacion) => ({
+          ...cotizacion,
+          vendedor_id: null,
+          vendedor_firma_url: null,
+        })),
+      };
+    }
+
+    return fallbackResponse;
+  }
+
   async function loadCotizacionesModule() {
     try {
       setLoading(true);
@@ -151,9 +196,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       setMessage("");
 
       const tenantId = requireCompanyId();
-      setStatusDetail("Cargando clientes y productos...");
+      setStatusDetail("Cargando clientes, productos y vendedores...");
 
-      const [clientesResult, productosResult, cotizacionesResult] = await Promise.allSettled([
+      const [clientesResult, productosResult, vendedoresResult, cotizacionesResult] = await Promise.allSettled([
         withTimeout(
           supabase
             .from("clientes")
@@ -172,27 +217,31 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         ),
         withTimeout(
           supabase
-            .from("cotizaciones")
-            .select(
-              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
-            )
+            .from("vendedores")
+            .select("id, nombre, email, telefono, comision, firma_url, activo")
             .eq("tenant_id", tenantId)
-            .order("created_at", { ascending: false }),
-          "consultar cotizaciones"
+            .eq("activo", true)
+            .order("nombre", { ascending: true }),
+          "consultar vendedores"
         ),
+        fetchCotizaciones(tenantId),
       ]);
 
       if (clientesResult.status === "rejected") throw clientesResult.reason;
       if (productosResult.status === "rejected") throw productosResult.reason;
+      if (vendedoresResult.status === "rejected") throw vendedoresResult.reason;
 
       const clientesResponse = clientesResult.value;
       const productosResponse = productosResult.value;
+      const vendedoresResponse = vendedoresResult.value;
 
       if (clientesResponse.error) throw clientesResponse.error;
       if (productosResponse.error) throw productosResponse.error;
+      if (vendedoresResponse.error) throw vendedoresResponse.error;
 
       setClientes(clientesResponse.data || []);
       setProductos(productosResponse.data || []);
+      setVendedores(vendedoresResponse.data || []);
 
       let cotizacionesData = [];
       let cotizacionesWarning = "";
@@ -213,7 +262,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       }
 
       setStatusDetail(
-        `Carga completa: ${cotizacionesData.length || 0} cotizacion(es), ${clientesResponse.data?.length || 0} cliente(s), ${productosResponse.data?.length || 0} producto(s).`
+        `Carga completa: ${cotizacionesData.length || 0} cotizacion(es), ${clientesResponse.data?.length || 0} cliente(s), ${productosResponse.data?.length || 0} producto(s), ${vendedoresResponse.data?.length || 0} vendedor(es).`
       );
     } catch (error) {
       console.error(error);
@@ -228,6 +277,25 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     setForm((previous) => ({
       ...previous,
       [name]: value,
+    }));
+  }
+
+  function handleClientChange(clienteId) {
+    const cliente = clientes.find((entry) => entry.id === clienteId) || null;
+    const matchedVendor =
+      cliente?.tiene_vendedor && cliente?.vendedor_nombre
+        ? vendedores.find(
+            (vendedor) =>
+              String(vendedor.nombre || "").trim().toLowerCase() ===
+              String(cliente.vendedor_nombre || "").trim().toLowerCase()
+          ) || null
+        : null;
+
+    setForm((previous) => ({
+      ...previous,
+      clienteId,
+      currencyCode: cliente?.centro_costos === "USD" ? "USD" : "MXN",
+      vendedorId: matchedVendor?.id || "",
     }));
   }
 
@@ -329,6 +397,14 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     setForm({
       folio: cotizacion.folio || "",
       clienteId: cotizacion.cliente_id || "",
+      vendedorId:
+        cotizacion.vendedor_id ||
+        vendedores.find(
+          (vendedor) =>
+            String(vendedor.nombre || "").trim().toLowerCase() ===
+            String(cotizacion.vendedor_nombre || "").trim().toLowerCase()
+        )?.id ||
+        "",
       estado: cotizacion.estado || "pendiente",
       vigenciaDias: String(cotizacion.vigencia_dias ?? DEFAULT_VALIDITY_DAYS),
       ivaRate: String(cotizacion.iva_rate ?? DEFAULT_IVA_RATE),
@@ -341,6 +417,104 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     setMessage("");
     setErrorMessage("");
     setStatusDetail(`Editando cotizacion ${cotizacion.folio || ""}.`);
+  }
+
+  function buildQuotePayload(tenantId) {
+    return {
+      tenant_id: tenantId,
+      folio:
+        form.folio?.trim() ||
+        buildConfiguredQuoteNumber({
+          prefix: quotePrefix,
+          nextNumber: nextQuoteNumber,
+          dateValue: new Date().toISOString(),
+        }),
+      cliente_id: selectedClient?.id,
+      cliente_nombre: selectedClient?.nombre || "",
+      cliente_empresa: selectedClient?.empresa || null,
+      cliente_rfc: selectedClient?.rfc || null,
+      cliente_email: selectedClient?.email || null,
+      cliente_telefono: selectedClient?.telefono || null,
+      cliente_direccion: selectedClient?.direccion || null,
+      cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
+      cliente_centro_costos: selectedClient?.centro_costos || "MXN",
+      vendedor_nombre: selectedVendor?.nombre || null,
+      currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
+      estado: form.estado,
+      vigencia_dias: Number(form.vigenciaDias || 0),
+      iva_rate: totals.ivaRate,
+      iva_amount: totals.ivaAmount,
+      notas: form.notas.trim() || null,
+      items: form.items
+        .map((item) => ({
+          producto_id: item.productoId || null,
+          sku: item.sku || null,
+          nombre: item.nombre || null,
+          nota: item.nota?.trim() || null,
+          unidad: item.unidad || null,
+          cantidad: Number(item.cantidad || 0),
+          precio: Number(item.precio || 0),
+          total: Number(item.cantidad || 0) * Number(item.precio || 0),
+        }))
+        .filter((item) => item.nombre && item.cantidad > 0),
+      subtotal: totals.subtotal,
+      total: totals.total,
+      ...(quoteVendorSchemaReady
+        ? {
+            vendedor_id: selectedVendor?.id || null,
+            vendedor_firma_url: selectedVendor?.firma_url || null,
+          }
+        : {}),
+    };
+  }
+
+  async function saveQuote(editingId, payload, createdAt) {
+    const runMutation = async (schemaReady) => {
+      const mutationPayload = schemaReady
+        ? payload
+        : {
+            ...payload,
+            vendedor_nombre: payload.vendedor_nombre || null,
+          };
+
+      if (!schemaReady) {
+        delete mutationPayload.vendedor_id;
+        delete mutationPayload.vendedor_firma_url;
+      }
+
+      const columns = schemaReady ? QUOTES_SELECT_COLUMNS : LEGACY_QUOTES_SELECT_COLUMNS;
+      const query = editingId
+        ? supabase.from("cotizaciones").update(mutationPayload).eq("id", editingId)
+        : supabase.from("cotizaciones").insert({
+            ...mutationPayload,
+            created_at: createdAt,
+          });
+
+      const response = await withTimeout(
+        query.select(columns).single(),
+        editingId ? "actualizar cotizacion" : "crear cotizacion"
+      );
+
+      if (!response.error || !schemaReady || !isMissingVendorQuoteSchema(response.error)) {
+        return response;
+      }
+
+      setQuoteVendorSchemaReady(false);
+      const fallbackResponse = await runMutation(false);
+      if (!fallbackResponse.error) {
+        return {
+          ...fallbackResponse,
+          data: {
+            ...fallbackResponse.data,
+            vendedor_id: null,
+            vendedor_firma_url: null,
+          },
+        };
+      }
+      return fallbackResponse;
+    };
+
+    return runMutation(quoteVendorSchemaReady);
   }
 
   async function handleSubmit(event) {
@@ -376,66 +550,19 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       }
 
       const createdAt = new Date().toISOString();
-      const folio =
-        form.folio?.trim() ||
-        buildConfiguredQuoteNumber({
-          prefix: quotePrefix,
-          nextNumber: nextQuoteNumber,
-          dateValue: createdAt,
-        });
       const payload = {
-        tenant_id: tenantId,
-        folio,
-        cliente_id: selectedClient?.id,
-        cliente_nombre: selectedClient?.nombre || "",
-        cliente_empresa: selectedClient?.empresa || null,
-        cliente_rfc: selectedClient?.rfc || null,
-        cliente_email: selectedClient?.email || null,
-        cliente_telefono: selectedClient?.telefono || null,
-        cliente_direccion: selectedClient?.direccion || null,
-        cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
-        cliente_centro_costos: selectedClient?.centro_costos || "MXN",
-        vendedor_nombre: selectedClient?.tiene_vendedor ? selectedClient?.vendedor_nombre || null : null,
-        currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
-        estado: form.estado,
-        vigencia_dias: Number(form.vigenciaDias || 0),
-        iva_rate: totals.ivaRate,
-        iva_amount: totals.ivaAmount,
-        notas: form.notas.trim() || null,
+        ...buildQuotePayload(tenantId),
         items: normalizedItems,
-        subtotal: totals.subtotal,
-        total: totals.total,
       };
+      const folio = payload.folio;
 
       let data = null;
       let error = null;
 
       if (editingQuoteId) {
-        ({ data, error } = await withTimeout(
-          supabase
-            .from("cotizaciones")
-            .update(payload)
-            .eq("id", editingQuoteId)
-            .select(
-              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
-            )
-            .single(),
-          "actualizar cotizacion"
-        ));
+        ({ data, error } = await saveQuote(editingQuoteId, payload, createdAt));
       } else {
-        ({ data, error } = await withTimeout(
-          supabase
-            .from("cotizaciones")
-            .insert({
-              ...payload,
-              created_at: createdAt,
-            })
-            .select(
-              "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at"
-            )
-            .single(),
-          "crear cotizacion"
-        ));
+        ({ data, error } = await saveQuote("", payload, createdAt));
       }
 
       if (error) throw error;
@@ -534,7 +661,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       cliente_direccion: selectedClient?.direccion || null,
       cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
       cliente_centro_costos: selectedClient?.centro_costos || form.currencyCode,
-      vendedor_nombre: selectedClient?.tiene_vendedor ? selectedClient?.vendedor_nombre || null : null,
+      vendedor_id: selectedVendor?.id || null,
+      vendedor_nombre: selectedVendor?.nombre || null,
+      vendedor_firma_url: selectedVendor?.firma_url || null,
       currency_code: form.currencyCode === "USD" ? "USD" : "MXN",
       estado: form.estado,
       vigencia_dias: Number(form.vigenciaDias || 0),
@@ -564,7 +693,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const companyAddress = branding?.address || "";
       const companyRfc = branding?.rfc || "";
       const companyFooter = branding?.pdf_footer || "Documento generado desde el portal de costos y presupuestos.";
-      const signatureUrl = branding?.signature_url || "";
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const marginX = 38;
@@ -769,6 +897,42 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const amountLines = pdf.splitTextToSize(`Importe en letra: ${amountInWords}`, contentWidth - 12);
       pdf.text(amountLines, marginX, summaryY + 110);
 
+      const sellerSignatureUrl = cotizacion.vendedor_firma_url || "";
+      const sellerName = cotizacion.vendedor_nombre || "Vendedor";
+      if (sellerSignatureUrl) {
+        const signatureLineY = pageHeight - 92;
+        const signatureBox = {
+          x: marginX + (contentWidth - 255) / 2,
+          y: signatureLineY - 56,
+          width: 255,
+          height: 51,
+        };
+
+        try {
+          const signatureAsset = await getImageDataUrl(sellerSignatureUrl);
+          const signatureSize = fitImageIntoBox(
+            signatureAsset.width,
+            signatureAsset.height,
+            signatureBox.width,
+            signatureBox.height
+          );
+          const signatureX = signatureBox.x + (signatureBox.width - signatureSize.width) / 2;
+          const signatureY = signatureBox.y + (signatureBox.height - signatureSize.height) / 2;
+          pdf.addImage(signatureAsset.dataUrl, "PNG", signatureX, signatureY, signatureSize.width, signatureSize.height);
+        } catch (error) {
+          console.error("No se pudo cargar la firma del vendedor para el PDF:", error);
+        }
+
+        pdf.setDrawColor(203, 213, 225);
+        pdf.line(signatureBox.x, signatureLineY, signatureBox.x + signatureBox.width, signatureLineY);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(71, 85, 105);
+        pdf.text(sellerName, signatureBox.x + signatureBox.width / 2, signatureLineY + 12, {
+          align: "center",
+        });
+      }
+
       const footerY = pageHeight - 52;
       pdf.setDrawColor(203, 213, 225);
       pdf.line(marginX, footerY - 14, pageWidth - marginX, footerY - 14);
@@ -817,7 +981,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                 <label>Cliente</label>
                 <select
                   value={form.clienteId}
-                  onChange={(event) => updateFormField("clienteId", event.target.value)}
+                  onChange={(event) => handleClientChange(event.target.value)}
                   className="quotes-select"
                   required
                 >
@@ -825,6 +989,22 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                   {clientes.map((cliente) => (
                     <option key={cliente.id} value={cliente.id}>
                       {cliente.nombre}{cliente.empresa ? ` - ${cliente.empresa}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Vendedor</label>
+                <select
+                  value={form.vendedorId}
+                  onChange={(event) => updateFormField("vendedorId", event.target.value)}
+                  className="quotes-select"
+                >
+                  <option value="">Sin vendedor</option>
+                  {vendedores.map((vendedor) => (
+                    <option key={vendedor.id} value={vendedor.id}>
+                      {vendedor.nombre}
                     </option>
                   ))}
                 </select>
@@ -903,9 +1083,8 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
               <div>
                 <span className="quotes-summary-label">Vendedor</span>
                 <strong>
-                  {selectedClient?.tiene_vendedor
-                    ? selectedClient?.vendedor_nombre || "Asignado"
-                    : "Sin vendedor"}
+                  {selectedVendor?.nombre ||
+                    (selectedClient?.tiene_vendedor ? selectedClient?.vendedor_nombre || "Asignado" : "Sin vendedor")}
                 </strong>
               </div>
             </div>
@@ -1216,6 +1395,8 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
   const companyFooter =
     branding?.pdf_footer || "Esta cotizacion fue generada desde el portal de costos y presupuestos.";
   const amountInWords = numberToSpanishWords(cotizacion.total, cotizacion.currency_code);
+  const sellerSignatureUrl = cotizacion.vendedor_firma_url || "";
+  const sellerName = cotizacion.vendedor_nombre || "Vendedor";
   const itemsRows = (cotizacion.items || [])
     .map(
       (item, index) => `
@@ -1285,6 +1466,10 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .totals-row.total { border-top: 1px solid #cbd5e1; margin-top: 6px; padding-top: 9px; font-size: 14px; font-weight: 800; }
           .totals-row.total strong { font-size: 14px; color: #0f172a; }
           .amount-words { margin-top: 8px; color: #64748b; font-size: 9px; line-height: 1.35; }
+          .seller-signature { margin: 24px auto 0; width: 220px; text-align: center; color: #64748b; }
+          .seller-signature-image { display: flex; justify-content: center; align-items: center; min-height: 70px; margin-bottom: 8px; }
+          .seller-signature-image img { max-width: 255px; max-height: 63px; object-fit: contain; }
+          .seller-signature-line { border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 9px; color: #475569; }
           .footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 9px; display: flex; justify-content: space-between; gap: 18px; }
           .footer-copy { max-width: 70%; }
           .footer-author { text-align: right; white-space: nowrap; }
@@ -1372,6 +1557,14 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               <div class="totals-row total"><span>Total</span><strong>${formatCurrency(cotizacion.total, cotizacion.currency_code)}</strong></div>
               <div class="amount-words">Importe en letra: ${escapeHtml(amountInWords)}</div>
             </div>
+            ${sellerSignatureUrl ? `
+              <div class="seller-signature">
+                <div class="seller-signature-image">
+                  <img src="${sellerSignatureUrl}" alt="Firma de ${escapeHtml(sellerName)}" />
+                </div>
+                <div class="seller-signature-line">${escapeHtml(sellerName)}</div>
+              </div>
+            ` : ""}
             <div class="footer">
               <div class="footer-copy">${escapeHtml(companyFooter)}</div>
               <div class="footer-author">Elaborado por ${escapeHtml(brandName)}</div>
