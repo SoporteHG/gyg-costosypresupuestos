@@ -564,7 +564,8 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const pageHeight = pdf.internal.pageSize.getHeight();
       const marginX = 38;
       const contentWidth = pageWidth - marginX * 2;
-      const issueDate = formatDate(cotizacion.created_at, false);
+      const folioBoxWidth = 160;
+      const folioBoxX = pageWidth - marginX - folioBoxWidth;
       const expiryDate = formatDate(calculateValidityDate(cotizacion.created_at, cotizacion.vigencia_dias), false);
       const infoLabelWidth = 68;
       const amountInWords = numberToSpanishWords(cotizacion.total, cotizacion.currency_code);
@@ -609,18 +610,20 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setTextColor(15, 23, 42);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(17);
-      pdf.text(brandName, marginX + 164, topY + 20);
+      const brandInfoX = marginX + 164;
+      const brandInfoWidth = folioBoxX - brandInfoX - 18;
+      const brandInfoCenterX = brandInfoX + brandInfoWidth / 2;
+      const brandInfoStartY = topY + 22;
+      pdf.text(brandName, brandInfoCenterX, brandInfoStartY, { align: "center" });
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8.5);
       pdf.setTextColor(71, 85, 105);
-      pdf.text(companyEmail || "Sin correo", marginX + 164, topY + 38);
-      pdf.text(companyPhone || "Sin telefono", marginX + 164, topY + 52);
+      pdf.text(companyEmail || "Sin correo", brandInfoCenterX, brandInfoStartY + 18, { align: "center" });
+      pdf.text(companyPhone || "Sin telefono", brandInfoCenterX, brandInfoStartY + 32, { align: "center" });
       if (companyRfc) {
-        pdf.text(`RFC ${companyRfc}`, marginX + 164, topY + 66);
+        pdf.text(`RFC ${companyRfc}`, brandInfoCenterX, brandInfoStartY + 46, { align: "center" });
       }
 
-      const folioBoxWidth = 160;
-      const folioBoxX = pageWidth - marginX - folioBoxWidth;
       pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
       pdf.rect(folioBoxX, topY, folioBoxWidth, 22, "F");
       pdf.setTextColor(255, 255, 255);
@@ -631,11 +634,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.rect(folioBoxX, topY + 22, folioBoxWidth, 42);
       pdf.setTextColor(15, 23, 42);
       pdf.setFontSize(12);
-      pdf.text(cotizacion.folio || "Sin folio", folioBoxX + 10, topY + 40);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.setTextColor(71, 85, 105);
-      pdf.text(issueDate, folioBoxX + 10, topY + 56);
+      pdf.text(cotizacion.folio || "Sin folio", folioBoxX + 10, topY + 49);
 
       const detailsTop = topY + 92;
       const leftColX = marginX;
@@ -648,7 +647,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.text("RFC", leftColX, detailsTop + 36);
       pdf.text("Moneda", rightColX, detailsTop);
       pdf.text("Fecha", rightColX, detailsTop + 18);
-      pdf.text("Estado", rightColX, detailsTop + 36);
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9.2);
@@ -657,8 +655,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.text(String(cotizacion.cliente_empresa || "Sin empresa"), leftColX + infoLabelWidth, detailsTop + 18);
       pdf.text(String(cotizacion.cliente_rfc || "Sin RFC"), leftColX + infoLabelWidth, detailsTop + 36);
       pdf.text(String(cotizacion.currency_code || "MXN"), rightColX + 54, detailsTop);
-      pdf.text(issueDate, rightColX + 54, detailsTop + 18);
-      pdf.text(STATUS_META[cotizacion.estado]?.label || "Pendiente", rightColX + 54, detailsTop + 36);
+      pdf.text(formatDate(cotizacion.created_at, false), rightColX + 54, detailsTop + 18);
 
       const boxTop = topY + 164;
       const boxGap = 8;
@@ -686,13 +683,16 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         pdf.setTextColor(15, 23, 42);
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(8.8);
-        pdf.text(truncateSingleLine(box.value, 24), x + 7, boxTop + boxHeaderHeight + 18);
+        pdf.text(truncateSingleLine(box.value, 24), x + boxWidth / 2, boxTop + boxHeaderHeight + 18, {
+          align: "center",
+        });
       });
 
       autoTable(pdf, {
         startY: boxTop + boxHeaderHeight + boxBodyHeight + 18,
-        head: [["Articulo", "Nombre", "U. med.", "Unidades", "Precio", "Importe"]],
-        body: (cotizacion.items || []).map((item) => [
+        head: [["Partida", "Articulo", "Descripcion", "U. med.", "Unidades", "Precio", "Importe"]],
+        body: (cotizacion.items || []).map((item, index) => [
+          String(index + 1),
           item.sku || "-",
           item.nombre || "-",
           item.unidad || "-",
@@ -1216,12 +1216,12 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
   const companyRfc = branding?.rfc || "";
   const companyFooter =
     branding?.pdf_footer || "Esta cotizacion fue generada desde el portal de costos y presupuestos.";
-  const validityDate = formatDate(calculateValidityDate(cotizacion.created_at, cotizacion.vigencia_dias), false);
   const amountInWords = numberToSpanishWords(cotizacion.total, cotizacion.currency_code);
   const itemsRows = (cotizacion.items || [])
     .map(
-      (item) => `
+      (item, index) => `
           <tr>
+            <td>${index + 1}</td>
             <td>${escapeHtml(item.sku || "-")}</td>
             <td>${escapeHtml(item.nombre || "-")}</td>
             <td>${escapeHtml(item.unidad || "-")}</td>
@@ -1241,16 +1241,16 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; padding: 28px; color: #0f172a; background: #ffffff; }
           .sheet { background: #fff; max-width: 920px; margin: 0 auto; }
           .hero { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; padding-bottom: 14px; border-bottom: 1px solid #cbd5e1; }
-          .hero-brand { display: flex; gap: 16px; align-items: flex-start; }
+          .hero-brand { display: flex; gap: 16px; align-items: center; }
           .hero-logo { width: 138px; height: 76px; padding: 4px; background: #fff; border: 1px solid #dbe3ef; display: flex; align-items: center; justify-content: center; overflow: hidden; color: ${brandColor}; font-weight: 800; box-sizing: border-box; }
           .hero-logo img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
+          .hero-brand-copy { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 76px; text-align: center; }
           .hero h1 { margin: 0 0 6px; font-size: 20px; color: #0f172a; }
           .hero p { margin: 2px 0; color: #475569; font-size: 10px; }
           .folio { min-width: 170px; }
           .folio-top { background: ${brandColor}; color: #fff; font-weight: 700; text-align: center; font-size: 11px; padding: 6px 10px; }
-          .folio-body { border: 1px solid #cbd5e1; border-top: none; padding: 10px 12px; }
-          .folio-body strong { display: block; font-size: 14px; margin-bottom: 5px; }
-          .folio-body div { font-size: 10px; color: #475569; }
+          .folio-body { border: 1px solid #cbd5e1; border-top: none; padding: 14px 12px; }
+          .folio-body strong { display: block; font-size: 14px; margin-bottom: 0; }
           .body { padding-top: 16px; }
           .client-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 24px; margin-bottom: 18px; }
           .client-col { display: grid; gap: 10px; }
@@ -1260,14 +1260,15 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
           .meta-card { min-width: 0; }
           .meta-head { background: ${brandColor}; color: #fff; font-size: 11px; font-weight: 700; text-align: center; padding: 5px 8px; }
-          .meta-body { border: 1px solid #cbd5e1; border-top: none; padding: 8px 10px; font-size: 10px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .meta-body { border: 1px solid #cbd5e1; border-top: none; padding: 8px 10px; font-size: 10px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
           table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
+          col.col-partida { width: 8%; }
           col.col-articulo { width: 14%; }
-          col.col-nombre { width: 43%; }
-          col.col-unidad { width: 12%; }
-          col.col-cantidad { width: 13%; }
-          col.col-precio { width: 9%; }
-          col.col-importe { width: 9%; }
+          col.col-nombre { width: 35%; }
+          col.col-unidad { width: 11%; }
+          col.col-cantidad { width: 11%; }
+          col.col-precio { width: 10.5%; }
+          col.col-importe { width: 10.5%; }
           th, td { padding: 7px 7px; border: 1px solid #dbe3ef; text-align: left; font-size: 10.5px; }
           th { background: ${brandColor}; color: #fff; font-size: 10px; }
           td { word-wrap: break-word; }
@@ -1292,7 +1293,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               <div class="hero-logo">
                 ${brandLogo ? `<img src="${brandLogo}" alt="${escapeHtml(brandName)}" />` : escapeHtml(brandName.slice(0, 2).toUpperCase())}
               </div>
-              <div>
+              <div class="hero-brand-copy">
                 <h1>${escapeHtml(brandName)}</h1>
                 <p>${escapeHtml(companyEmail || "Sin correo")}</p>
                 <p>${escapeHtml(companyPhone || "Sin telefono")}</p>
@@ -1304,7 +1305,6 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               <div class="folio-top">COTIZACION</div>
               <div class="folio-body">
                 <strong>${escapeHtml(cotizacion.folio || "Sin folio")}</strong>
-                <div>${escapeHtml(formatDate(cotizacion.created_at, false))}</div>
               </div>
             </div>
           </div>
@@ -1341,6 +1341,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
             </div>
             <table>
               <colgroup>
+                <col class="col-partida" />
                 <col class="col-articulo" />
                 <col class="col-nombre" />
                 <col class="col-unidad" />
@@ -1350,8 +1351,9 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               </colgroup>
               <thead>
                 <tr>
+                  <th>Partida</th>
                   <th>Articulo</th>
-                  <th>Nombre</th>
+                  <th>Descripcion</th>
                   <th>U. med.</th>
                   <th>Unidades</th>
                   <th>Precio</th>
