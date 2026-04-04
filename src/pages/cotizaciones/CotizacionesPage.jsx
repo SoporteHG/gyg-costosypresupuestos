@@ -817,10 +817,10 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         { title: "Credito", value: cotizacion.cliente_condiciones_credito || "Sin condiciones" },
         { title: "Vigencia", value: `${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias` },
         { title: "Moneda", value: cotizacion.currency_code || "MXN" },
-        { title: "Vendedor", value: cotizacion.vendedor_nombre || "Sin vendedor" },
-        { title: "Tiempo de Entrega", value: cotizacion.tiempo_entrega || "Por definir" },
-        { title: "Condiciones de Embarque", value: cotizacion.condiciones_embarque || "Por definir" },
       ];
+
+      const boxCount = boxData.length;
+      const effectiveBoxRows = Math.ceil(boxCount / boxColumns);
 
       boxData.forEach((box, index) => {
         const columnIndex = index % boxColumns;
@@ -845,7 +845,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       });
 
       autoTable(pdf, {
-        startY: boxTop + boxRows * (boxHeaderHeight + boxBodyHeight) + boxRowGap + 18,
+        startY: boxTop + effectiveBoxRows * (boxHeaderHeight + boxBodyHeight) + (effectiveBoxRows - 1) * boxRowGap + 18,
         head: [["Partida", "Articulo", "Descripcion", "U. med.", "Unidades", "Precio", "Importe"]],
         body: (cotizacion.items || []).map((item, index) => [
           String(index + 1),
@@ -931,8 +931,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       );
 
       const sellerSignatureUrl = cotizacion.vendedor_firma_url || "";
-      const sellerName = cotizacion.vendedor_nombre || "Vendedor";
-      if (sellerSignatureUrl) {
+        if (sellerSignatureUrl) {
         const signatureLineY = pageHeight - 92;
         const signatureBox = {
           x: marginX + (contentWidth - 255) / 2,
@@ -958,12 +957,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
 
         pdf.setDrawColor(203, 213, 225);
         pdf.line(signatureBox.x, signatureLineY, signatureBox.x + signatureBox.width, signatureLineY);
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(8.5);
-        pdf.setTextColor(71, 85, 105);
-        pdf.text(sellerName, signatureBox.x + signatureBox.width / 2, signatureLineY + 12, {
-          align: "center",
-        });
       }
 
       const footerY = pageHeight - 52;
@@ -1639,7 +1632,6 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
                 <div class="seller-signature-image">
                   <img src="${sellerSignatureUrl}" alt="Firma de ${escapeHtml(sellerName)}" />
                 </div>
-                <div class="seller-signature-line">${escapeHtml(sellerName)}</div>
               </div>
             ` : ""}
             <div class="footer">
