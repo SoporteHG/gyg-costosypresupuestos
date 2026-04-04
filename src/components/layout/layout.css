@@ -1108,6 +1108,15 @@
   color: #0f172a;
 }
 
+.quotes-item-note-field {
+  grid-column: 1 / -1;
+}
+
+.quotes-item-note-field textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
 .quotes-summary-panel {
   display: flex;
   justify-content: flex-end;

@@ -12,6 +12,7 @@ const initialItem = {
   productoId: "",
   sku: "",
   nombre: "",
+  nota: "",
   unidad: "",
   cantidad: "1",
   precio: "0",
@@ -242,6 +243,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
               productoId,
               sku: producto?.sku || "",
               nombre: producto?.nombre || "",
+              nota: item.nota || "",
               unidad: producto?.unidad || "",
               precio: producto ? String(producto.precio ?? 0) : "0",
             }
@@ -316,6 +318,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           productoId: item.producto_id || "",
           sku: item.sku || "",
           nombre: item.nombre || "",
+          nota: item.nota || "",
           unidad: item.unidad || "",
           cantidad: String(item.cantidad ?? 1),
           precio: String(item.precio ?? 0),
@@ -360,6 +363,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           producto_id: item.productoId || null,
           sku: item.sku || null,
           nombre: item.nombre || null,
+          nota: item.nota?.trim() || null,
           unidad: item.unidad || null,
           cantidad: Number(item.cantidad || 0),
           precio: Number(item.precio || 0),
@@ -506,6 +510,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         producto_id: item.productoId || null,
         sku: item.sku || null,
         nombre: item.nombre || null,
+        nota: item.nota?.trim() || null,
         unidad: item.unidad || null,
         cantidad: Number(item.cantidad || 0),
         precio: Number(item.precio || 0),
@@ -696,7 +701,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         body: (cotizacion.items || []).map((item, index) => [
           String(index + 1),
           item.sku || "-",
-          item.nombre || "-",
+          item.nota ? `${item.nombre || "-"}\n \n${item.nota}` : item.nombre || "-",
           item.unidad || "-",
           String(item.cantidad || 0),
           formatCurrency(item.precio, cotizacion.currency_code),
@@ -985,6 +990,16 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                     >
                       Quitar
                     </button>
+
+                    <div className="form-group quotes-item-note-field">
+                      <label>Nota de la partida (opcional)</label>
+                      <textarea
+                        value={item.nota || ""}
+                        onChange={(event) => handleItemChange(item.id, "nota", event.target.value)}
+                        rows="2"
+                        placeholder="Detalle adicional debajo de la descripcion en la cotizacion..."
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1207,7 +1222,10 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           <tr>
             <td>${index + 1}</td>
             <td>${escapeHtml(item.sku || "-")}</td>
-            <td>${escapeHtml(item.nombre || "-")}</td>
+            <td>
+              <div class="item-description-main">${escapeHtml(item.nombre || "-")}</div>
+              ${item.nota ? `<div class="item-description-note">${escapeHtml(item.nota)}</div>` : ""}
+            </td>
             <td>${escapeHtml(item.unidad || "-")}</td>
             <td>${item.cantidad || 0}</td>
             <td>${formatCurrency(item.precio, cotizacion.currency_code)}</td>
@@ -1258,6 +1276,8 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           td { word-wrap: break-word; overflow-wrap: break-word; }
           td:nth-child(1), td:nth-child(4), td:nth-child(5) { text-align: center; }
           td:nth-child(6), td:nth-child(7) { text-align: right; }
+          .item-description-main { color: #1e293b; }
+          .item-description-note { margin-top: 8px; font-size: 8.2px; line-height: 1.5; color: #64748b; white-space: pre-wrap; }
           .totals { width: 220px; margin: 18px -18px 0 auto; padding: 0; }
           .totals-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding: 5px 0; align-items: center; }
           .totals-row span:first-child { color: #64748b; font-size: 10px; }
