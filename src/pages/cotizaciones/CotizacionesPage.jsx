@@ -784,14 +784,13 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
 
       const detailsTop = topY + 92;
       const leftColX = marginX;
-      const rightColX = marginX + 300;
+      const rightColX = marginX + 342;
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8.5);
       pdf.setTextColor(15, 23, 42);
       pdf.text("Cliente", leftColX, detailsTop);
       pdf.text("Empresa", leftColX, detailsTop + 18);
       pdf.text("RFC", leftColX, detailsTop + 36);
-      pdf.text("Moneda", rightColX, detailsTop);
       pdf.text("Fecha", rightColX, detailsTop + 18);
 
       pdf.setFont("helvetica", "normal");
@@ -800,7 +799,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.text(String(cotizacion.cliente_nombre || "Cliente"), leftColX + infoLabelWidth, detailsTop);
       pdf.text(String(cotizacion.cliente_empresa || "Sin empresa"), leftColX + infoLabelWidth, detailsTop + 18);
       pdf.text(String(cotizacion.cliente_rfc || "Sin RFC"), leftColX + infoLabelWidth, detailsTop + 36);
-      pdf.text(String(cotizacion.currency_code || "MXN"), rightColX + 54, detailsTop);
       pdf.text(formatDate(cotizacion.created_at, false), rightColX + 54, detailsTop + 18);
 
       const tableContentWidth = 532;
