@@ -841,7 +841,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const boxColumns = 3;
       const boxWidth = (tableContentWidth - boxGap * (boxColumns - 1)) / boxColumns;
       const boxHeaderHeight = 20;
-      const boxBodyHeight = 28;
+      const boxBodyHeight = 22;
       const boxRowGap = 10;
       const detailsTop = topY + 92;
       const leftColX = tableStartX;
@@ -864,7 +864,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.text(String(cotizacion.attention_to || "Por definir"), leftColX + infoLabelWidth, detailsTop + 54);
       pdf.text(formatDate(cotizacion.created_at, false), rightColX + 54, detailsTop + 18);
 
-      const boxTop = topY + 182;
+      const boxTop = topY + 166;
       const boxRows = 2;
       const boxData = [
         { title: "CREDITO", value: cotizacion.cliente_condiciones_credito || "Sin condiciones" },
@@ -892,7 +892,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         pdf.setTextColor(15, 23, 42);
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(8.8);
-        pdf.text(truncateSingleLine(box.value, 26), x + boxWidth / 2, y + boxHeaderHeight + 18, {
+        pdf.text(truncateSingleLine(box.value, 26), x + boxWidth / 2, y + boxHeaderHeight + 14.5, {
           align: "center",
         });
       });
@@ -1541,10 +1541,10 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .line { display: grid; grid-template-columns: 68px 1fr; gap: 12px; align-items: start; }
           .label { color: #0f172a; font-size: 10px; font-weight: 700; text-transform: uppercase; }
           .value { color: #334155; font-size: 11px; line-height: 1.35; }
-          .meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+          .meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
           .meta-card { min-width: 0; }
           .meta-head { background: ${brandColor}; color: #fff; font-size: 11px; font-weight: 700; text-align: center; padding: 5px 8px; }
-          .meta-body { border: 1px solid #cbd5e1; border-top: none; padding: 8px 10px; font-size: 10px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+          .meta-body { border: 1px solid #cbd5e1; border-top: none; padding: 6px 10px; font-size: 10px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
           table { width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed; }
           col.col-partida { width: 4%; }
           col.col-articulo { width: 14%; }
