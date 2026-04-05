@@ -26,6 +26,7 @@ const initialForm = {
   vigenciaDias: String(DEFAULT_VALIDITY_DAYS),
   ivaRate: String(DEFAULT_IVA_RATE),
   currencyCode: "MXN",
+  attentionTo: "",
   tiempoEntrega: "",
   condicionesEmbarque: "",
   notas: "",
@@ -48,7 +49,7 @@ const STATUS_META = {
 };
 
 const QUOTES_SELECT_COLUMNS =
-  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_firma_url, tiempo_entrega, condiciones_embarque, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at, deleted_at";
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, attention_to, vendedor_id, vendedor_nombre, vendedor_firma_url, tiempo_entrega, condiciones_embarque, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at, deleted_at";
 
 const LEGACY_QUOTES_SELECT_COLUMNS =
   "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at, deleted_at";
@@ -147,6 +148,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
   function isMissingVendorQuoteSchema(error) {
     const errorText = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
     return (
+      errorText.includes("attention_to") ||
       errorText.includes("vendedor_id") ||
       errorText.includes("vendedor_firma_url") ||
       errorText.includes("tiempo_entrega") ||
@@ -188,6 +190,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         ...fallbackResponse,
         data: (fallbackResponse.data || []).map((cotizacion) => ({
           ...cotizacion,
+          attention_to: null,
           vendedor_id: null,
           vendedor_firma_url: null,
         })),
@@ -420,6 +423,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       vigenciaDias: String(cotizacion.vigencia_dias ?? DEFAULT_VALIDITY_DAYS),
       ivaRate: String(cotizacion.iva_rate ?? DEFAULT_IVA_RATE),
       currencyCode: cotizacion.currency_code === "USD" ? "USD" : "MXN",
+      attentionTo: cotizacion.attention_to || "",
       tiempoEntrega: cotizacion.tiempo_entrega || "",
       condicionesEmbarque: cotizacion.condiciones_embarque || "",
       notas: cotizacion.notas || "",
@@ -451,6 +455,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       cliente_direccion: selectedClient?.direccion || null,
       cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
       cliente_centro_costos: selectedClient?.centro_costos || "MXN",
+      attention_to: form.attentionTo.trim() || null,
       vendedor_nombre: selectedVendor?.nombre || null,
       tiempo_entrega: form.tiempoEntrega.trim() || null,
       condiciones_embarque: form.condicionesEmbarque.trim() || null,
@@ -489,10 +494,12 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         ? payload
         : {
             ...payload,
+            attention_to: payload.attention_to || null,
             vendedor_nombre: payload.vendedor_nombre || null,
           };
 
       if (!schemaReady) {
+        delete mutationPayload.attention_to;
         delete mutationPayload.vendedor_id;
         delete mutationPayload.vendedor_firma_url;
       }
@@ -521,6 +528,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           ...fallbackResponse,
           data: {
             ...fallbackResponse.data,
+            attention_to: payload.attention_to || null,
             vendedor_id: null,
             vendedor_firma_url: null,
           },
@@ -835,26 +843,16 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const boxHeaderHeight = 20;
       const boxBodyHeight = 28;
       const boxRowGap = 10;
-      const detailsTop = topY + 116;
+      const detailsTop = topY + 92;
       const leftColX = tableStartX;
       const rightColX = marginX + 342;
-      const attentionBoxWidth = boxWidth;
-      const attentionBoxHeight = boxHeaderHeight;
-      const attentionBoxY = detailsTop - 34;
-      pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
-      pdf.rect(tableStartX, attentionBoxY, attentionBoxWidth, attentionBoxHeight, "F");
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(8.5);
-      pdf.text("ATENCION", tableStartX + attentionBoxWidth / 2, attentionBoxY + 15, {
-        align: "center",
-      });
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8.5);
       pdf.setTextColor(15, 23, 42);
       pdf.text("Cliente", leftColX, detailsTop);
       pdf.text("Empresa", leftColX, detailsTop + 18);
       pdf.text("RFC", leftColX, detailsTop + 36);
+      pdf.text("Atencion a", leftColX, detailsTop + 54);
       pdf.text("Fecha", rightColX, detailsTop + 18);
 
       pdf.setFont("helvetica", "normal");
@@ -863,9 +861,10 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.text(String(cotizacion.cliente_nombre || "Cliente"), leftColX + infoLabelWidth, detailsTop);
       pdf.text(String(cotizacion.cliente_empresa || "Sin empresa"), leftColX + infoLabelWidth, detailsTop + 18);
       pdf.text(String(cotizacion.cliente_rfc || "Sin RFC"), leftColX + infoLabelWidth, detailsTop + 36);
+      pdf.text(String(cotizacion.attention_to || "Por definir"), leftColX + infoLabelWidth, detailsTop + 54);
       pdf.text(formatDate(cotizacion.created_at, false), rightColX + 54, detailsTop + 18);
 
-      const boxTop = topY + 164;
+      const boxTop = topY + 182;
       const boxRows = 2;
       const boxData = [
         { title: "CREDITO", value: cotizacion.cliente_condiciones_credito || "Sin condiciones" },
@@ -1087,16 +1086,12 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
               </div>
 
               <div className="form-group">
-                <label>Estado</label>
-                <select
-                  value={form.estado}
-                  onChange={(event) => updateFormField("estado", event.target.value)}
-                  className="quotes-select"
-                >
-                  <option value="pendiente">Pendiente de autorizacion</option>
-                  <option value="rechazada">No autorizada</option>
-                  <option value="autorizada">Autorizada y en proceso</option>
-                </select>
+                <label>Atencion a</label>
+                <input
+                  value={form.attentionTo}
+                  onChange={(event) => updateFormField("attentionTo", event.target.value)}
+                  placeholder="Ej. Ing. Juan Perez Lopez"
+                />
               </div>
             </div>
 
@@ -1541,8 +1536,6 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .folio-body { border: 1px solid #cbd5e1; border-top: none; padding: 14px 12px; text-align: center; }
           .folio-body strong { display: block; font-size: 14px; margin-bottom: 0; text-align: center; }
           .body { padding-top: 16px; }
-          .attention-card { width: calc((100% - 20px) / 3); margin: 0 0 12px; }
-          .attention-head { background: ${brandColor}; color: #fff; font-size: 11px; font-weight: 700; text-align: center; padding: 5px 8px; }
           .client-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 24px; margin-bottom: 18px; }
           .client-col { display: grid; gap: 10px; }
           .line { display: grid; grid-template-columns: 68px 1fr; gap: 12px; align-items: start; }
@@ -1608,14 +1601,12 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
             </div>
           </div>
           <div class="body">
-            <div class="attention-card">
-              <div class="attention-head">ATENCION</div>
-            </div>
             <div class="client-grid">
               <div class="client-col">
                 <div class="line"><div class="label">Cliente</div><div class="value">${escapeHtml(cotizacion.cliente_nombre || "Cliente")}</div></div>
                 <div class="line"><div class="label">Empresa</div><div class="value">${escapeHtml(cotizacion.cliente_empresa || "Sin empresa")}</div></div>
                 <div class="line"><div class="label">RFC</div><div class="value">${escapeHtml(cotizacion.cliente_rfc || "Sin RFC")}</div></div>
+                <div class="line"><div class="label">Atencion a</div><div class="value">${escapeHtml(cotizacion.attention_to || "Por definir")}</div></div>
               </div>
               <div class="client-col">
                 <div class="line"><div class="label">Telefono</div><div class="value">${escapeHtml(cotizacion.cliente_telefono || "Sin telefono")}</div></div>
