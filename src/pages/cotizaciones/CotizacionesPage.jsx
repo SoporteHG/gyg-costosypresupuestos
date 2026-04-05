@@ -859,18 +859,16 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setFontSize(8.5);
       pdf.setTextColor(15, 23, 42);
       pdf.text("Cliente", leftColX, detailsTop);
-      pdf.text("Empresa", leftColX, detailsTop + 18);
-      pdf.text("RFC", leftColX, detailsTop + 36);
-      pdf.text("Atencion a", leftColX, detailsTop + 54);
+      pdf.text("RFC", leftColX, detailsTop + 18);
+      pdf.text("Atencion a", leftColX, detailsTop + 36);
       pdf.text("Fecha", rightColX, detailsTop + 18);
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9.2);
       pdf.setTextColor(51, 65, 85);
       pdf.text(String(cotizacion.cliente_nombre || "Cliente"), leftColX + infoLabelWidth, detailsTop);
-      pdf.text(String(cotizacion.cliente_empresa || "Sin empresa"), leftColX + infoLabelWidth, detailsTop + 18);
-      pdf.text(String(cotizacion.cliente_rfc || "Sin RFC"), leftColX + infoLabelWidth, detailsTop + 36);
-      pdf.text(String(cotizacion.attention_to || "Por definir"), leftColX + infoLabelWidth, detailsTop + 54);
+      pdf.text(String(cotizacion.cliente_rfc || "Sin RFC"), leftColX + infoLabelWidth, detailsTop + 18);
+      pdf.text(String(cotizacion.attention_to || "Por definir"), leftColX + infoLabelWidth, detailsTop + 36);
       pdf.text(formatDate(cotizacion.created_at, false), rightColX + 54, detailsTop + 18);
 
       const boxTop = topY + 166;
@@ -1623,7 +1621,6 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
             <div class="client-grid">
               <div class="client-col">
                 <div class="line"><div class="label">Cliente</div><div class="value">${escapeHtml(cotizacion.cliente_nombre || "Cliente")}</div></div>
-                <div class="line"><div class="label">Empresa</div><div class="value">${escapeHtml(cotizacion.cliente_empresa || "Sin empresa")}</div></div>
                 <div class="line"><div class="label">RFC</div><div class="value">${escapeHtml(cotizacion.cliente_rfc || "Sin RFC")}</div></div>
                 <div class="line"><div class="label">Atencion a</div><div class="value">${escapeHtml(cotizacion.attention_to || "Por definir")}</div></div>
               </div>
