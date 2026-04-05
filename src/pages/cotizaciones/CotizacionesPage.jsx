@@ -809,11 +809,9 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8.5);
       pdf.setTextColor(71, 85, 105);
-      pdf.text(companyEmail || "Sin correo", brandInfoCenterX, brandInfoStartY + 18, { align: "center" });
+      pdf.text(`RFC ${companyRfc || "Sin RFC"}`, brandInfoCenterX, brandInfoStartY + 18, { align: "center" });
       pdf.text(companyPhone || "Sin telefono", brandInfoCenterX, brandInfoStartY + 32, { align: "center" });
-      if (companyRfc) {
-        pdf.text(`RFC ${companyRfc}`, brandInfoCenterX, brandInfoStartY + 46, { align: "center" });
-      }
+      pdf.text(companyEmail || "Sin correo", brandInfoCenterX, brandInfoStartY + 46, { align: "center" });
 
       pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
       pdf.rect(folioBoxX, topY, folioBoxWidth, 22, "F");
@@ -825,11 +823,32 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.rect(folioBoxX, topY + 22, folioBoxWidth, 42);
       pdf.setTextColor(15, 23, 42);
       pdf.setFontSize(12);
-      pdf.text(cotizacion.folio || "Sin folio", folioBoxX + 10, topY + 49);
+      pdf.text(cotizacion.folio || "Sin folio", folioBoxX + folioBoxWidth / 2, topY + 49, {
+        align: "center",
+      });
 
-      const detailsTop = topY + 92;
-      const leftColX = marginX;
+      const tableContentWidth = 532;
+      const tableStartX = marginX + (contentWidth - tableContentWidth) / 2;
+      const boxGap = 8;
+      const boxColumns = 3;
+      const boxWidth = (tableContentWidth - boxGap * (boxColumns - 1)) / boxColumns;
+      const boxHeaderHeight = 20;
+      const boxBodyHeight = 28;
+      const boxRowGap = 10;
+      const detailsTop = topY + 116;
+      const leftColX = tableStartX;
       const rightColX = marginX + 342;
+      const attentionBoxWidth = boxWidth;
+      const attentionBoxHeight = boxHeaderHeight;
+      const attentionBoxY = detailsTop - 34;
+      pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
+      pdf.rect(tableStartX, attentionBoxY, attentionBoxWidth, attentionBoxHeight, "F");
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8.5);
+      pdf.text("ATENCION", tableStartX + attentionBoxWidth / 2, attentionBoxY + 15, {
+        align: "center",
+      });
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(8.5);
       pdf.setTextColor(15, 23, 42);
@@ -846,20 +865,12 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.text(String(cotizacion.cliente_rfc || "Sin RFC"), leftColX + infoLabelWidth, detailsTop + 36);
       pdf.text(formatDate(cotizacion.created_at, false), rightColX + 54, detailsTop + 18);
 
-      const tableContentWidth = 532;
-      const tableStartX = marginX + (contentWidth - tableContentWidth) / 2;
       const boxTop = topY + 164;
-      const boxGap = 8;
-      const boxColumns = 3;
       const boxRows = 2;
-      const boxWidth = (tableContentWidth - boxGap * (boxColumns - 1)) / boxColumns;
-      const boxHeaderHeight = 20;
-      const boxBodyHeight = 28;
-      const boxRowGap = 10;
       const boxData = [
-        { title: "Credito", value: cotizacion.cliente_condiciones_credito || "Sin condiciones" },
-        { title: "Vigencia", value: `${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias` },
-        { title: "Moneda", value: cotizacion.currency_code || "MXN" },
+        { title: "CREDITO", value: cotizacion.cliente_condiciones_credito || "Sin condiciones" },
+        { title: "VIGENCIA", value: `${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias` },
+        { title: "MONEDA", value: cotizacion.currency_code || "MXN" },
       ];
 
       const boxCount = boxData.length;
@@ -974,13 +985,12 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       );
 
       const sellerSignatureUrl = cotizacion.vendedor_firma_url || "";
-        if (sellerSignatureUrl) {
-        const signatureLineY = pageHeight - 92;
+      if (sellerSignatureUrl) {
         const signatureBox = {
-          x: marginX + (contentWidth - 255) / 2,
-          y: signatureLineY - 56,
-          width: 255,
-          height: 51,
+          x: marginX + (contentWidth - 306) / 2,
+          y: pageHeight - 144,
+          width: 306,
+          height: 61,
         };
 
         try {
@@ -997,9 +1007,6 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         } catch (error) {
           console.error("No se pudo cargar la firma del vendedor para el PDF:", error);
         }
-
-        pdf.setDrawColor(203, 213, 225);
-        pdf.line(signatureBox.x, signatureLineY, signatureBox.x + signatureBox.width, signatureLineY);
       }
 
       const footerY = pageHeight - 52;
@@ -1531,9 +1538,11 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .hero p { margin: 2px 0; color: #475569; font-size: 10px; }
           .folio { min-width: 170px; }
           .folio-top { background: ${brandColor}; color: #fff; font-weight: 700; text-align: center; font-size: 11px; padding: 6px 10px; }
-          .folio-body { border: 1px solid #cbd5e1; border-top: none; padding: 14px 12px; }
-          .folio-body strong { display: block; font-size: 14px; margin-bottom: 0; }
+          .folio-body { border: 1px solid #cbd5e1; border-top: none; padding: 14px 12px; text-align: center; }
+          .folio-body strong { display: block; font-size: 14px; margin-bottom: 0; text-align: center; }
           .body { padding-top: 16px; }
+          .attention-card { width: calc((100% - 20px) / 3); margin: 0 0 12px; }
+          .attention-head { background: ${brandColor}; color: #fff; font-size: 11px; font-weight: 700; text-align: center; padding: 5px 8px; }
           .client-grid { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 24px; margin-bottom: 18px; }
           .client-col { display: grid; gap: 10px; }
           .line { display: grid; grid-template-columns: 68px 1fr; gap: 12px; align-items: start; }
@@ -1569,10 +1578,9 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           .quote-logistics-block + .quote-logistics-block { margin-top: 14px; }
           .quote-logistics-label { display: block; margin-bottom: 5px; color: #64748b; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
           .quote-logistics-value { color: #0f172a; font-size: 9.2px; line-height: 1.45; white-space: pre-wrap; }
-          .seller-signature { margin: 24px auto 0; width: 220px; text-align: center; color: #64748b; }
-          .seller-signature-image { display: flex; justify-content: center; align-items: center; min-height: 70px; margin-bottom: 8px; }
-          .seller-signature-image img { max-width: 255px; max-height: 63px; object-fit: contain; }
-          .seller-signature-line { border-top: 1px solid #cbd5e1; padding-top: 8px; font-size: 9px; color: #475569; }
+          .seller-signature { margin: 24px auto 0; width: 264px; text-align: center; color: #64748b; }
+          .seller-signature-image { display: flex; justify-content: center; align-items: center; min-height: 84px; margin-bottom: 0; }
+          .seller-signature-image img { max-width: 306px; max-height: 76px; object-fit: contain; }
           .footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #cbd5e1; color: #64748b; font-size: 9px; display: flex; justify-content: space-between; gap: 18px; }
           .footer-copy { max-width: 70%; }
           .footer-author { text-align: right; white-space: nowrap; }
@@ -1587,10 +1595,9 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
               </div>
               <div class="hero-brand-copy">
                 <h1>${escapeHtml(brandName)}</h1>
-                <p>${escapeHtml(companyEmail || "Sin correo")}</p>
+                <p>${escapeHtml(companyRfc ? `RFC ${companyRfc}` : "RFC Sin RFC")}</p>
                 <p>${escapeHtml(companyPhone || "Sin telefono")}</p>
-                <p>${escapeHtml(companyAddress || "Sin direccion")}</p>
-                <p>${escapeHtml(companyRfc ? `RFC ${companyRfc}` : "")}</p>
+                <p>${escapeHtml(companyEmail || "Sin correo")}</p>
               </div>
             </div>
             <div class="folio">
@@ -1601,6 +1608,9 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
             </div>
           </div>
           <div class="body">
+            <div class="attention-card">
+              <div class="attention-head">ATENCION</div>
+            </div>
             <div class="client-grid">
               <div class="client-col">
                 <div class="line"><div class="label">Cliente</div><div class="value">${escapeHtml(cotizacion.cliente_nombre || "Cliente")}</div></div>
@@ -1615,29 +1625,29 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
             </div>
             <div class="meta-grid">
               <div class="meta-card">
-                <div class="meta-head">Credito</div>
-                <div class="meta-body">${escapeHtml(cotizacion.cliente_condiciones_credito || "Sin condiciones")}</div>
-              </div>
-              <div class="meta-card">
-                <div class="meta-head">Vigencia</div>
-                <div class="meta-body">${escapeHtml(`${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias`)}</div>
-              </div>
-              <div class="meta-card">
-                <div class="meta-head">Moneda</div>
-                <div class="meta-body">${escapeHtml(cotizacion.currency_code || "MXN")}</div>
-              </div>
-              <div class="meta-card">
-                <div class="meta-head">Vendedor</div>
-                <div class="meta-body">${escapeHtml(cotizacion.vendedor_nombre || "Sin vendedor")}</div>
-              </div>
-              <div class="meta-card">
-                <div class="meta-head">Tiempo de Entrega</div>
-                <div class="meta-body">${escapeHtml(tiempoEntrega)}</div>
-              </div>
-              <div class="meta-card">
-                <div class="meta-head">Condiciones de Embarque</div>
-                <div class="meta-body">${escapeHtml(condicionesEmbarque)}</div>
-              </div>
+              <div class="meta-head">CREDITO</div>
+              <div class="meta-body">${escapeHtml(cotizacion.cliente_condiciones_credito || "Sin condiciones")}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-head">VIGENCIA</div>
+              <div class="meta-body">${escapeHtml(`${cotizacion.vigencia_dias || DEFAULT_VALIDITY_DAYS} dias`)}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-head">MONEDA</div>
+              <div class="meta-body">${escapeHtml(cotizacion.currency_code || "MXN")}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-head">VENDEDOR</div>
+              <div class="meta-body">${escapeHtml(cotizacion.vendedor_nombre || "Sin vendedor")}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-head">TIEMPO DE ENTREGA</div>
+              <div class="meta-body">${escapeHtml(tiempoEntrega)}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-head">CONDICIONES DE EMBARQUE</div>
+              <div class="meta-body">${escapeHtml(condicionesEmbarque)}</div>
+            </div>
             </div>
             <table>
               <colgroup>
