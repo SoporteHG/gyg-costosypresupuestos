@@ -29,6 +29,7 @@ const initialForm = {
   attentionTo: "",
   tiempoEntrega: "",
   condicionesEmbarque: "",
+  preparedBy: "",
   notas: "",
   items: [initialItem],
 };
@@ -49,7 +50,7 @@ const STATUS_META = {
 };
 
 const QUOTES_SELECT_COLUMNS =
-  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, attention_to, vendedor_id, vendedor_nombre, vendedor_firma_url, tiempo_entrega, condiciones_embarque, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at, deleted_at";
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, attention_to, prepared_by, vendedor_id, vendedor_nombre, vendedor_firma_url, tiempo_entrega, condiciones_embarque, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at, deleted_at";
 
 const LEGACY_QUOTES_SELECT_COLUMNS =
   "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at, deleted_at";
@@ -149,6 +150,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
     const errorText = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
     return (
       errorText.includes("attention_to") ||
+      errorText.includes("prepared_by") ||
       errorText.includes("vendedor_id") ||
       errorText.includes("vendedor_firma_url") ||
       errorText.includes("tiempo_entrega") ||
@@ -191,6 +193,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         data: (fallbackResponse.data || []).map((cotizacion) => ({
           ...cotizacion,
           attention_to: null,
+          prepared_by: null,
           vendedor_id: null,
           vendedor_firma_url: null,
         })),
@@ -424,6 +427,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       ivaRate: String(cotizacion.iva_rate ?? DEFAULT_IVA_RATE),
       currencyCode: cotizacion.currency_code === "USD" ? "USD" : "MXN",
       attentionTo: cotizacion.attention_to || "",
+      preparedBy: cotizacion.prepared_by || "",
       tiempoEntrega: cotizacion.tiempo_entrega || "",
       condicionesEmbarque: cotizacion.condiciones_embarque || "",
       notas: cotizacion.notas || "",
@@ -456,6 +460,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       cliente_condiciones_credito: selectedClient?.condiciones_credito || null,
       cliente_centro_costos: selectedClient?.centro_costos || "MXN",
       attention_to: form.attentionTo.trim() || null,
+      prepared_by: form.preparedBy.trim() || null,
       vendedor_nombre: selectedVendor?.nombre || null,
       tiempo_entrega: form.tiempoEntrega.trim() || null,
       condiciones_embarque: form.condicionesEmbarque.trim() || null,
@@ -495,11 +500,13 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         : {
             ...payload,
             attention_to: payload.attention_to || null,
+            prepared_by: payload.prepared_by || null,
             vendedor_nombre: payload.vendedor_nombre || null,
           };
 
       if (!schemaReady) {
         delete mutationPayload.attention_to;
+        delete mutationPayload.prepared_by;
         delete mutationPayload.vendedor_id;
         delete mutationPayload.vendedor_firma_url;
       }
@@ -529,6 +536,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
           data: {
             ...fallbackResponse.data,
             attention_to: payload.attention_to || null,
+            prepared_by: payload.prepared_by || null,
             vendedor_id: null,
             vendedor_firma_url: null,
           },
@@ -759,6 +767,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       const companyAddress = branding?.address || "";
       const companyRfc = branding?.rfc || "";
       const companyFooter = branding?.pdf_footer || "Documento generado desde el portal de costos y presupuestos.";
+      const preparedBy = cotizacion.prepared_by || brandName;
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const marginX = 38;
@@ -1016,7 +1025,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       pdf.setTextColor(100, 116, 139);
       const footerLines = pdf.splitTextToSize(companyFooter, pageWidth - 220);
       pdf.text(footerLines, marginX, footerY);
-      pdf.text(`Elaborado por ${brandName}`, pageWidth - marginX, footerY, { align: "right" });
+      pdf.text(`Elaborado por ${preparedBy}`, pageWidth - marginX, footerY, { align: "right" });
 
       pdf.save(`${cotizacion.folio || "cotizacion"}.pdf`);
     } catch (error) {
@@ -1276,6 +1285,15 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             </div>
 
             <div className="form-group form-group-full">
+              <label>Elaborado por</label>
+              <input
+                value={form.preparedBy}
+                onChange={(event) => updateFormField("preparedBy", event.target.value)}
+                placeholder="Ej. SEPROBAT COMPANY"
+              />
+            </div>
+
+            <div className="form-group form-group-full">
               <label>Notas</label>
               <textarea
                 value={form.notas}
@@ -1493,6 +1511,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
   const companyRfc = branding?.rfc || "";
   const companyFooter =
     branding?.pdf_footer || "Esta cotizacion fue generada desde el portal de costos y presupuestos.";
+  const preparedBy = cotizacion.prepared_by || brandName;
   const amountInWords = numberToSpanishWords(cotizacion.total, cotizacion.currency_code);
   const sellerSignatureUrl = cotizacion.vendedor_firma_url || "";
   const sellerName = cotizacion.vendedor_nombre || "Vendedor";
@@ -1688,7 +1707,7 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
             ` : ""}
             <div class="footer">
               <div class="footer-copy">${escapeHtml(companyFooter)}</div>
-              <div class="footer-author">Elaborado por ${escapeHtml(brandName)}</div>
+              <div class="footer-author">Elaborado por ${escapeHtml(preparedBy)}</div>
             </div>
           </div>
         </div>
