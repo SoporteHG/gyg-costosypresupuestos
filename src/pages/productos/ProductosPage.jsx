@@ -101,6 +101,7 @@ export default function ProductosPage({ currentUser, companyId }) {
           .from("productos")
           .select("id, tenant_id, sku, nombre, categoria, marca, unidad, descripcion, costo, precio")
           .eq("tenant_id", currentCompanyId)
+          .is("deleted_at", null)
           .order("nombre", { ascending: true }),
         "consultar productos"
       );
@@ -260,7 +261,14 @@ export default function ProductosPage({ currentUser, companyId }) {
       setStatusDetail("Eliminando producto...");
 
       const { error } = await withTimeout(
-        supabase.from("productos").delete().eq("id", producto.id),
+        supabase
+          .from("productos")
+          .update({
+            deleted_at: new Date().toISOString(),
+            deleted_by: currentUser?.id || null,
+            deleted_by_email: currentUser?.email || null,
+          })
+          .eq("id", producto.id),
         "eliminar producto"
       );
 
@@ -322,7 +330,8 @@ export default function ProductosPage({ currentUser, companyId }) {
         supabase
           .from("productos")
           .select("id, sku")
-          .eq("tenant_id", tenantId),
+          .eq("tenant_id", tenantId)
+          .is("deleted_at", null),
         "consultar productos existentes"
       );
 

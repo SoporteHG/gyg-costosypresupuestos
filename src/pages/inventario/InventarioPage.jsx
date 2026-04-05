@@ -68,6 +68,7 @@ export default function InventarioPage({ currentUser, companyId }) {
             .from("productos")
             .select("id, nombre, sku, unidad")
             .eq("tenant_id", currentCompanyId)
+            .is("deleted_at", null)
             .order("nombre", { ascending: true }),
           "consultar productos para inventario"
         ),

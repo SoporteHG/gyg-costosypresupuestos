@@ -10,6 +10,7 @@ import {
   BarChart3,
   LifeBuoy,
   Ticket,
+  Trash2,
   ShieldCheck,
   Settings,
 } from "lucide-react";
@@ -105,6 +106,10 @@ export default function Sidebar({ company, branding, isSuperAdmin }) {
             <NavLink to="/mesa-tickets" className="nav-link nav-link-admin">
               <Ticket size={18} />
               Mesa de tickets
+            </NavLink>
+            <NavLink to="/papelera" className="nav-link nav-link-admin">
+              <Trash2 size={18} />
+              Papelera
             </NavLink>
           </>
         ) : null}

@@ -48,10 +48,10 @@ const STATUS_META = {
 };
 
 const QUOTES_SELECT_COLUMNS =
-  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_firma_url, tiempo_entrega, condiciones_embarque, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_id, vendedor_nombre, vendedor_firma_url, tiempo_entrega, condiciones_embarque, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at, deleted_at";
 
 const LEGACY_QUOTES_SELECT_COLUMNS =
-  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at";
+  "id, tenant_id, folio, cliente_id, cliente_nombre, cliente_empresa, cliente_rfc, cliente_email, cliente_telefono, cliente_direccion, cliente_condiciones_credito, cliente_centro_costos, vendedor_nombre, currency_code, estado, vigencia_dias, iva_rate, iva_amount, notas, items, subtotal, total, created_at, deleted_at";
 
 export default function CotizacionesPage({ currentUser, companyId, company, branding }) {
   const [clientes, setClientes] = useState([]);
@@ -160,6 +160,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         .from("cotizaciones")
         .select(columns)
         .eq("tenant_id", tenantId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
     const primaryResponse = await withTimeout(
@@ -211,6 +212,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             .from("clientes")
             .select("id, nombre, empresa, rfc, email, telefono, direccion, condiciones_credito, centro_costos, tiene_vendedor, vendedor_nombre")
             .eq("tenant_id", tenantId)
+            .is("deleted_at", null)
             .order("nombre", { ascending: true }),
           "consultar clientes"
         ),
@@ -219,6 +221,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             .from("productos")
             .select("id, sku, nombre, unidad, categoria, precio")
             .eq("tenant_id", tenantId)
+            .is("deleted_at", null)
             .order("nombre", { ascending: true }),
           "consultar productos"
         ),
@@ -227,6 +230,7 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
             .from("vendedores")
             .select("id, nombre, email, telefono, comision, firma_url, activo")
             .eq("tenant_id", tenantId)
+            .is("deleted_at", null)
             .eq("activo", true)
             .order("nombre", { ascending: true }),
           "consultar vendedores"
@@ -616,6 +620,47 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
       console.error(error);
       setErrorMessage(error.message || "No se pudo guardar la cotizacion.");
       setStatusDetail("No se pudo completar el guardado.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteQuote(cotizacion) {
+    const confirmed = window.confirm(`Eliminar la cotizacion "${cotizacion.folio}"?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setMessage("");
+      setErrorMessage("");
+      setStatusDetail("Eliminando cotizacion...");
+
+      const { error } = await withTimeout(
+        supabase
+          .from("cotizaciones")
+          .update({
+            deleted_at: new Date().toISOString(),
+            deleted_by: currentUser?.id || null,
+            deleted_by_email: currentUser?.email || null,
+          })
+          .eq("id", cotizacion.id),
+        "eliminar cotizacion"
+      );
+
+      if (error) throw error;
+
+      setCotizaciones((previous) => previous.filter((entry) => entry.id !== cotizacion.id));
+      if (editingQuoteId === cotizacion.id) {
+        resetForm();
+      }
+      setMessage("Cotizacion eliminada correctamente.");
+      setStatusDetail("Cotizacion eliminada.");
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error.message || "No se pudo eliminar la cotizacion.");
+      setStatusDetail("No se pudo completar la eliminacion.");
     } finally {
       setSaving(false);
     }
@@ -1361,6 +1406,14 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
                       </button>
                       <button type="button" className="secondary-btn" onClick={() => handlePrint(cotizacion)}>
                         Imprimir / Exportar PDF
+                      </button>
+                      <button
+                        type="button"
+                        className="table-action-btn table-action-btn-danger"
+                        onClick={() => handleDeleteQuote(cotizacion)}
+                        disabled={saving}
+                      >
+                        Eliminar
                       </button>
                     </div>
                   </article>

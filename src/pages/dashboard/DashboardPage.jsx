@@ -122,6 +122,7 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
             .from("clientes")
             .select("id, nombre, empresa, created_at")
             .eq("tenant_id", companyId)
+            .is("deleted_at", null)
             .order("created_at", { ascending: false })
             .limit(6),
           "consultar clientes"
@@ -131,6 +132,7 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
             .from("productos")
             .select("id, nombre, sku, categoria, precio, created_at")
             .eq("tenant_id", companyId)
+            .is("deleted_at", null)
             .order("created_at", { ascending: false }),
           "consultar productos"
         ),
@@ -139,6 +141,7 @@ export default function DashboardPage({ currentUser, companyId, company, brandin
             .from("cotizaciones")
             .select("id, folio, cliente_nombre, estado, total, created_at")
             .eq("tenant_id", companyId)
+            .is("deleted_at", null)
             .order("created_at", { ascending: false })
             .limit(20),
           "consultar cotizaciones"

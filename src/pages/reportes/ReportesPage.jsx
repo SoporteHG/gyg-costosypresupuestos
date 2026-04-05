@@ -167,6 +167,7 @@ export default function ReportesPage({ companyId, company, branding }) {
             .from("clientes")
             .select("id, nombre, empresa, telefono, email, rfc")
             .eq("tenant_id", companyId)
+            .is("deleted_at", null)
             .order("nombre", { ascending: true }),
           "consultar clientes"
         ),
@@ -175,6 +176,7 @@ export default function ReportesPage({ companyId, company, branding }) {
             .from("productos")
             .select("id, sku, nombre, categoria, marca, precio")
             .eq("tenant_id", companyId)
+            .is("deleted_at", null)
             .order("nombre", { ascending: true }),
           "consultar productos"
         ),
@@ -192,6 +194,7 @@ export default function ReportesPage({ companyId, company, branding }) {
             .from("cotizaciones")
             .select("id, folio, cliente_nombre, estado, total, created_at")
             .eq("tenant_id", companyId)
+            .is("deleted_at", null)
             .order("created_at", { ascending: false })
             .limit(50),
           "consultar cotizaciones"

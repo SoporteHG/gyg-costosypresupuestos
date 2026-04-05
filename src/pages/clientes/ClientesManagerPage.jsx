@@ -109,6 +109,7 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
             "id, tenant_id, nombre, empresa, rfc, telefono, direccion, email, condiciones_credito, centro_costos, tiene_vendedor, vendedor_nombre"
           )
           .eq("tenant_id", currentCompanyId)
+          .is("deleted_at", null)
           .order("nombre", { ascending: true }),
         "consultar clientes"
       );
@@ -257,7 +258,14 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
       setStatusDetail("Eliminando cliente...");
 
       const { error } = await withTimeout(
-        supabase.from("clientes").delete().eq("id", cliente.id),
+        supabase
+          .from("clientes")
+          .update({
+            deleted_at: new Date().toISOString(),
+            deleted_by: currentUser?.id || null,
+            deleted_by_email: currentUser?.email || null,
+          })
+          .eq("id", cliente.id),
         "eliminar cliente"
       );
 
@@ -320,7 +328,11 @@ export default function ClientesManagerPage({ currentUser, companyId }) {
       }
 
       const { data: existingRows, error: existingError } = await withTimeout(
-        supabase.from("clientes").select("id, nombre, empresa, email").eq("tenant_id", tenantId),
+        supabase
+          .from("clientes")
+          .select("id, nombre, empresa, email")
+          .eq("tenant_id", tenantId)
+          .is("deleted_at", null),
         "consultar clientes existentes"
       );
 

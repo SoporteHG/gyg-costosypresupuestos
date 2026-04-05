@@ -2183,6 +2183,142 @@
   letter-spacing: 0.03em;
 }
 
+.trash-hero-card {
+  display: grid;
+  gap: 18px;
+}
+
+.trash-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.trash-metric-active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+}
+
+.trash-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.trash-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.trash-tab span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.trash-tab-active {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
+}
+
+.trash-tab-active span {
+  color: #1d4ed8;
+}
+
+.trash-records {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.trash-record {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #dbeafe;
+}
+
+.trash-record-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.trash-record-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.trash-record-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.trash-record-summary {
+  margin: 0;
+  color: #64748b;
+}
+
+.trash-record-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.trash-record-field {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.trash-record-field span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.trash-record-field strong {
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.trash-restore-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 @media (max-width: 1024px) {
   .providers-form-grid,
   .vendors-form-grid,
@@ -2192,7 +2328,8 @@
   .admin-plan-meta,
   .admin-plan-form-grid,
   .support-form-grid,
-  .support-help-strip {
+  .support-help-strip,
+  .trash-record-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -2321,7 +2458,8 @@
   .admin-plan-meta,
   .admin-plan-form-grid,
   .support-form-grid,
-  .support-help-strip {
+  .support-help-strip,
+  .trash-record-meta {
     grid-template-columns: 1fr;
   }
 
@@ -2338,6 +2476,12 @@
   }
 
   .admin-ticket-update-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .trash-record-head,
+  .trash-record-head-actions {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -2528,6 +2672,42 @@
 .app-theme-dark .admin-plan-card {
   background: linear-gradient(135deg, #111827 0%, #172033 100%);
   border-color: #243041;
+}
+
+.app-theme-dark .trash-tab {
+  background: #172554;
+  color: #bfdbfe;
+  border-color: #1d4ed8;
+}
+
+.app-theme-dark .trash-tab span {
+  background: #0f172a;
+  color: #bfdbfe;
+}
+
+.app-theme-dark .trash-tab-active {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  color: #ffffff;
+}
+
+.app-theme-dark .trash-record {
+  background: linear-gradient(135deg, #111827 0%, #172033 100%);
+  border-color: #243041;
+}
+
+.app-theme-dark .trash-record-title,
+.app-theme-dark .trash-record-field strong {
+  color: #f8fafc;
+}
+
+.app-theme-dark .trash-record-summary,
+.app-theme-dark .trash-record-field span {
+  color: #94a3b8;
+}
+
+.app-theme-dark .trash-record-field {
+  background: #111827;
+  border-color: #1f2937;
 }
 
 .app-theme-dark .admin-plan-card-head h3,

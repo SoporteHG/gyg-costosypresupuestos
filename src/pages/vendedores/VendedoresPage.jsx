@@ -67,6 +67,7 @@ export default function VendedoresPage({ currentUser, companyId }) {
           .from("vendedores")
           .select("id, tenant_id, nombre, email, telefono, comision, firma_url, activo, created_at")
           .eq("tenant_id", currentCompanyId)
+          .is("deleted_at", null)
           .order("nombre", { ascending: true }),
         "consultar vendedores"
       );
@@ -231,7 +232,14 @@ export default function VendedoresPage({ currentUser, companyId }) {
       setStatusDetail("Eliminando vendedor...");
 
       const { error } = await withTimeout(
-        supabase.from("vendedores").delete().eq("id", vendedor.id),
+        supabase
+          .from("vendedores")
+          .update({
+            deleted_at: new Date().toISOString(),
+            deleted_by: currentUser?.id || null,
+            deleted_by_email: currentUser?.email || null,
+          })
+          .eq("id", vendedor.id),
         "eliminar vendedor"
       );
 

@@ -97,6 +97,7 @@ export default function ProveedoresPage({ currentUser, companyId }) {
           .from("proveedores")
           .select("id, tenant_id, nombre, empresa, rfc, telefono, email, direccion, contacto")
           .eq("tenant_id", currentCompanyId)
+          .is("deleted_at", null)
           .order("nombre", { ascending: true }),
         "consultar proveedores"
       );
@@ -234,7 +235,14 @@ export default function ProveedoresPage({ currentUser, companyId }) {
       setStatusDetail("Eliminando proveedor...");
 
       const { error } = await withTimeout(
-        supabase.from("proveedores").delete().eq("id", proveedor.id),
+        supabase
+          .from("proveedores")
+          .update({
+            deleted_at: new Date().toISOString(),
+            deleted_by: currentUser?.id || null,
+            deleted_by_email: currentUser?.email || null,
+          })
+          .eq("id", proveedor.id),
         "eliminar proveedor"
       );
 
@@ -295,7 +303,8 @@ export default function ProveedoresPage({ currentUser, companyId }) {
         supabase
           .from("proveedores")
           .select("id, nombre, empresa, email")
-          .eq("tenant_id", tenantId),
+          .eq("tenant_id", tenantId)
+          .is("deleted_at", null),
         "consultar proveedores existentes"
       );
 

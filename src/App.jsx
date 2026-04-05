@@ -24,6 +24,7 @@ import SoportePage from "./pages/soporte/SoportePage";
 import ConfiguracionPage from "./pages/settings/ConfiguracionPage";
 import SuperAdminPage from "./pages/admin/SuperAdminPage";
 import TicketsAdminPage from "./pages/admin/TicketsAdminPage";
+import TrashAdminPage from "./pages/admin/TrashAdminPage";
 import LoginPage from "./pages/auth/LoginPage";
 
 const THEME_STORAGE_KEY = "gyg-theme-mode";
@@ -314,6 +315,16 @@ function App() {
           element={
             adminContext.isSuperAdmin ? (
               <TicketsAdminPage currentUser={session.user} />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          }
+        />
+        <Route
+          path="/papelera"
+          element={
+            adminContext.isSuperAdmin ? (
+              <TrashAdminPage currentUser={session.user} />
             ) : (
               <Navigate to="/dashboard" replace />
             )

@@ -135,6 +135,7 @@ export default function PuntoVentaPage({ currentUser, companyId, company, brandi
             .from("clientes")
             .select("id, nombre, empresa, telefono, email")
             .eq("tenant_id", tenantId)
+            .is("deleted_at", null)
             .order("nombre", { ascending: true }),
           "consultar clientes"
         ),
@@ -143,6 +144,7 @@ export default function PuntoVentaPage({ currentUser, companyId, company, brandi
             .from("productos")
             .select("id, sku, nombre, categoria, marca, unidad, precio")
             .eq("tenant_id", tenantId)
+            .is("deleted_at", null)
             .order("nombre", { ascending: true }),
           "consultar productos"
         ),
