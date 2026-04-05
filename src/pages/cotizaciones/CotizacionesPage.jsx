@@ -815,20 +815,31 @@ export default function CotizacionesPage({ currentUser, companyId, company, bran
         });
       }
 
-      pdf.setTextColor(15, 23, 42);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(17);
       const brandInfoX = marginX + 164;
       const brandInfoWidth = folioBoxX - brandInfoX - 18;
       const brandInfoCenterX = brandInfoX + brandInfoWidth / 2;
-      const brandInfoStartY = topY + 22;
-      pdf.text(brandName, brandInfoCenterX, brandInfoStartY, { align: "center" });
+      const wrappedBrandName = fitHeadingTextToTwoLines(pdf, brandName, brandInfoWidth, 17, 13.5);
+      const brandNameTopY = topY + (wrappedBrandName.lines.length > 1 ? 12 : 22);
+      const brandNameLineHeight = wrappedBrandName.fontSize * 1.02;
+      pdf.setTextColor(15, 23, 42);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(wrappedBrandName.fontSize);
+      wrappedBrandName.lines.forEach((line, index) => {
+        pdf.text(line, brandInfoCenterX, brandNameTopY + index * brandNameLineHeight, {
+          align: "center",
+        });
+      });
+      const brandInfoStartY =
+        brandNameTopY +
+        (wrappedBrandName.lines.length - 1) * brandNameLineHeight +
+        wrappedBrandName.fontSize +
+        4;
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8.5);
       pdf.setTextColor(71, 85, 105);
-      pdf.text(`RFC ${companyRfc || "Sin RFC"}`, brandInfoCenterX, brandInfoStartY + 18, { align: "center" });
-      pdf.text(companyPhone || "Sin telefono", brandInfoCenterX, brandInfoStartY + 32, { align: "center" });
-      pdf.text(companyEmail || "Sin correo", brandInfoCenterX, brandInfoStartY + 46, { align: "center" });
+      pdf.text(`RFC ${companyRfc || "Sin RFC"}`, brandInfoCenterX, brandInfoStartY, { align: "center" });
+      pdf.text(companyPhone || "Sin telefono", brandInfoCenterX, brandInfoStartY + 11.5, { align: "center" });
+      pdf.text(companyEmail || "Sin correo", brandInfoCenterX, brandInfoStartY + 23, { align: "center" });
 
       pdf.setFillColor(accentColor.r, accentColor.g, accentColor.b);
       pdf.rect(folioBoxX, topY, folioBoxWidth, 22, "F");
@@ -1542,11 +1553,11 @@ function buildPrintableHtml({ cotizacion, company, branding, currentUser }) {
           body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; padding: 28px; color: #0f172a; background: #ffffff; }
           .sheet { background: #fff; max-width: 920px; margin: 0 auto; }
           .hero { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; padding-bottom: 14px; border-bottom: 1px solid #cbd5e1; }
-          .hero-brand { display: flex; gap: 16px; align-items: center; }
+          .hero-brand { display: flex; gap: 16px; align-items: center; flex: 1 1 auto; min-width: 0; }
           .hero-logo { width: 138px; height: 76px; padding: 4px; background: #fff; border: 1px solid #dbe3ef; display: flex; align-items: center; justify-content: center; overflow: hidden; color: ${brandColor}; font-weight: 800; box-sizing: border-box; }
           .hero-logo img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
-          .hero-brand-copy { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 76px; text-align: center; }
-          .hero h1 { margin: 0 0 6px; font-size: 20px; color: #0f172a; }
+          .hero-brand-copy { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 76px; min-width: 0; max-width: 440px; text-align: center; }
+          .hero h1 { margin: 0 0 6px; font-size: 20px; line-height: 1.05; color: #0f172a; white-space: normal; overflow-wrap: break-word; word-break: normal; }
           .hero p { margin: 2px 0; color: #475569; font-size: 10px; }
           .folio { min-width: 170px; }
           .folio-top { background: ${brandColor}; color: #fff; font-weight: 700; text-align: center; font-size: 11px; padding: 6px 10px; }
@@ -1805,6 +1816,46 @@ function truncateSingleLine(value, maxLength) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (text.length <= maxLength) return text;
   return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+}
+
+function fitHeadingTextToTwoLines(pdf, value, maxWidth, preferredFontSize = 17, minFontSize = 13.5) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    return {
+      fontSize: preferredFontSize,
+      lines: [""],
+    };
+  }
+
+  for (let fontSize = preferredFontSize; fontSize >= minFontSize; fontSize -= 0.5) {
+    pdf.setFontSize(fontSize);
+    const lines = pdf.splitTextToSize(text, maxWidth).filter(Boolean);
+    if (lines.length <= 2) {
+      return {
+        fontSize,
+        lines,
+      };
+    }
+  }
+
+  pdf.setFontSize(minFontSize);
+  const fittedLines = pdf.splitTextToSize(text, maxWidth).filter(Boolean);
+  if (fittedLines.length <= 2) {
+    return {
+      fontSize: minFontSize,
+      lines: fittedLines,
+    };
+  }
+
+  let secondLine = fittedLines.slice(1).join(" ").trim();
+  while (secondLine && pdf.getTextWidth(`${secondLine}...`) > maxWidth) {
+    secondLine = secondLine.slice(0, -1).trim();
+  }
+
+  return {
+    fontSize: minFontSize,
+    lines: [fittedLines[0], `${secondLine || fittedLines[1] || ""}...`],
+  };
 }
 
 function formatCurrency(value, currencyCode = "MXN") {
