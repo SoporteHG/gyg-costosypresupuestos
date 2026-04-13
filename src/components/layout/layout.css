@@ -2777,3 +2777,291 @@
 .app-theme-dark .dashboard-plan-grid strong {
   color: #f8fafc;
 }
+
+@media (max-width: 640px) {
+  .app {
+    min-width: 0;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 12px 10px 10px;
+  }
+
+  .sidebar-brand {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .sidebar-brand-mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    font-size: 14px;
+  }
+
+  .logo {
+    max-width: calc(100vw - 86px);
+    font-size: 16px;
+    line-height: 1.15;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar-brand-copy {
+    display: none;
+  }
+
+  .sidebar nav {
+    gap: 6px;
+    padding: 2px 0 6px;
+    scroll-snap-type: x proximity;
+  }
+
+  .nav-link {
+    scroll-snap-align: start;
+    padding: 9px 10px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  .topbar {
+    padding: 12px 10px;
+    gap: 12px;
+  }
+
+  .topbar h3 {
+    font-size: 16px;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .topbar-copy {
+    font-size: 12px;
+  }
+
+  .topbar-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .topbar-actions > *,
+  .topbar-actions .primary-btn,
+  .theme-switch,
+  .user,
+  .topbar-clock {
+    width: 100%;
+  }
+
+  .theme-switch,
+  .user,
+  .topbar-clock {
+    justify-content: center;
+  }
+
+  .topbar-clock {
+    align-items: center;
+    text-align: center;
+  }
+
+  .topbar-company-switch select,
+  .form-group input,
+  .form-group textarea,
+  .quotes-select,
+  .primary-btn,
+  .secondary-btn,
+  .table-action-btn {
+    min-height: 46px;
+  }
+
+  .content {
+    padding: 12px 10px 22px;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  .page-header h1,
+  .page-header h2 {
+    font-size: 24px;
+    line-height: 1.15;
+  }
+
+  .page-header p {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .module-card,
+  .stat-card,
+  .quote-card,
+  .support-card,
+  .admin-plan-card,
+  .trash-record,
+  .dashboard-list-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .cards-grid,
+  .quotes-cards-grid,
+  .support-cards-grid,
+  .pos-sales-grid,
+  .admin-plans-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .dashboard-hero {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .dashboard-hero-brand {
+    align-items: flex-start;
+  }
+
+  .dashboard-hero-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+  }
+
+  .dashboard-plan-grid,
+  .form-grid,
+  .quotes-top-grid,
+  .quotes-top-grid-wide,
+  .quotes-logistics-grid,
+  .quotes-client-summary,
+  .quotes-client-summary-extended,
+  .quotes-item-row,
+  .quote-card-meta,
+  .pos-overview-strip,
+  .pos-cash-session-grid,
+  .pos-cash-session-summary,
+  .pos-main-grid,
+  .pos-search-bar,
+  .pos-top-grid,
+  .pos-client-chip,
+  .pos-cart-row,
+  .pos-cash-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quotes-item-row,
+  .pos-cart-row {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .quotes-number-field,
+  .quotes-item-total,
+  .pos-number-field,
+  .vendors-number-field,
+  .products-metric-field {
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .quotes-summary-panel {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .quotes-summary-panel > div,
+  .quotes-summary-panel-rich > div {
+    width: 100%;
+  }
+
+  .quotes-actions,
+  .quote-card-actions,
+  .settings-actions,
+  .products-actions,
+  .clients-actions,
+  .providers-actions,
+  .inventory-actions,
+  .vendors-actions,
+  .reports-actions,
+  .trash-record-head-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .quotes-actions .primary-btn,
+  .quotes-actions .secondary-btn,
+  .quote-card-actions .primary-btn,
+  .quote-card-actions .secondary-btn,
+  .quote-card-actions .table-action-btn,
+  .reports-actions .primary-btn,
+  .reports-actions .secondary-btn,
+  .trash-record-head-actions .primary-btn,
+  .trash-record-head-actions .secondary-btn,
+  .trash-record-head-actions .table-action-btn {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .table-wrap {
+    margin-inline: -2px;
+    border-radius: 14px;
+  }
+
+  .table th,
+  .table td {
+    padding: 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .pos-products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .pos-product-card {
+    min-height: 104px;
+    padding: 12px;
+  }
+
+  .pos-product-card strong:last-child {
+    font-size: 18px;
+  }
+
+  .reports-tabs,
+  .trash-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .reports-tab,
+  .trash-tab {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .pos-products-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nav-link svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .theme-switch-label,
+  .topbar-clock-date,
+  .user {
+    font-size: 12px;
+  }
+}
